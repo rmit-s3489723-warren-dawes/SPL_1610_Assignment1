@@ -1,0 +1,25 @@
+[
+  {
+    "start" : {
+      "datetime": "2016-05-01T11:00:00.00Z",
+      "timezone": "Australia/Melbourne"
+    },
+    "end" : {
+      "datetime": "2016-05-01T13:00:00.00Z",
+      "timezone": "Australia/Melbourne"
+    }
+  },
+  {
+    "start" : {
+      "timezone": "Australia/Melbourne",
+      "date": "2016-05-01"
+    },
+    "end" : {
+      "timezone": "Australia/Melbourne",
+      "date": "2016-05-02"
+    }
+  }
+]
+
+
+

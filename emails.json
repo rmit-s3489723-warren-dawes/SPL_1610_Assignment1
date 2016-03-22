@@ -1,0 +1,58 @@
+{
+  "type": "email",
+  "items": [
+    {
+      "sent": "2016-02-01T19:03:02.00Z",
+      "subject": "Upcoming events: Orientation 2016",
+      "timeZone": "Australia/Melbourne",
+      "content": "We're pleased to be working with RMIT LINK's Orientation team and RUSU to welcome all new students to campus through a series of exciting Orientation events. This email serves as a notification to make sure you know when the major events are occurring, to ensure they don't interrupt your work and so that you are able to encourage all new students to attend. Brunswick All Students Welcome, 23 February 12 - 1:30pm Brunswick Courtyard. Bundoora All Students Welcome, 24 February 12 - 2pm Bundoora West concourse. City All Students Welcome, 25 February 11am - 2:30pm Alumni Courtyard, University Way. RUSU Welcome Bash, 25 February 4pm - 9pm Alumni Courtyard. City Clubs Day, 3 March 11am - 2pm Alumni Courtyard, University Way."
+    },
+    {
+      "sent": "2016-03-03T19:03:02.00Z",
+      "subject": "Project 1 First time meeting",
+      "timeZone": "Australia/Melbourne",
+      "content": "Early next week is good for us.  How about Monday 11am?"
+    },
+    {
+      "sent": "2016-03-03T19:03:02.00Z",
+      "subject": "Project 1 First time meeting",
+      "timeZone": "Australia/Melbourne",
+      "content": "Early next week is good for us.  How about Tuesday 11:30 AM?"
+    },
+    {
+      "sent": "2016-03-03T19:03:02.00Z",
+      "subject": "Project 1 First time meeting",
+      "timeZone": "Australia/Melbourne",
+      "content": "Early next week is good for us.  How about Wed. 11:30 AM?"
+    },
+    {
+      "sent": "2016-01-20T12:31:00.00Z",
+      "subject": "Final Call for Paper",
+      "content": "Paper submission deadline: January 31, 2016. Notification of acceptance: March 15th, 2016. Final paper submission and early registration deadline: Apr. 15, 2016"
+    },
+    {
+      "sent": "2016-01-20T12:31:00.00Z",
+      "subject": "Final Call for Paper 2",
+      "content": "Paper submission deadline: 31 January, 2016. Notification of acceptance: 15th March, 2016. Final paper submission and early registration deadline: 15th Apr., 2016"
+    },
+    {
+      "sent": "2016-02-29T09:24:30.00Z",
+      "subject": "Re: Have a dinner tomorrow",
+      "timeZone": "Asia/Tokyo",
+      "content": "Yes, tomorrow 6:00 pm is fine for me."
+    },
+    {
+      "sent": "2016-02-29T19:24:03.00Z",
+      "subject": "Re: Have a dinner tomorrow",
+      "timeZone": "Australia/Melbourne",
+      "content": "Yes, tomorrow 6:00pm is fine for me."
+    },
+    {
+      "sent": "2016-02-29T09:00:00.00Z",
+      "subject": "A party invitation",
+      "timeZone": "Australia/Melbourne",
+      "content": "The party will be hold on Tomorrow 9:00pm - 2:00am"
+    }
+  ]
+}
+
