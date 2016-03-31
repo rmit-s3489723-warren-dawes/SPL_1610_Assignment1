@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+use LWP::Simple;
 
 open my $openfile, "emails.json" or die "Error opening file: $!\n";
 
@@ -8,10 +9,13 @@ my %kv_blocks;
 
 my $line_num = 0;
 
+# open file and read each line
 while (<$openfile>)
 {
+	# debug: line number
 	$line_num++;
 	
+	# remove leading/trailing white-spaces
 	$_ =~ s/^\s+|\s+$//g;
 	
 	#print "$line_num:$_\n";
@@ -23,20 +27,35 @@ while (<$openfile>)
 	}
 	
 	# if within the key/value portion - we preserve contents
-	if ($_ =~ m/^"/)
+	if ($_ =~ /^"/)
 	{
+		# debug: print string
 		print "$_\n";		
 		
+		# new variables
 		my $extract_key;
 		my $extract_value;
 		
+		# if starting with double-quotes
 		if($_ =~ /^"/)
 		{
+		    # extract any data within paired double-quotes
 		    $_ =~ s/"(.*?)"//s;
+		    
+		    # assign key to extracted data ($1 from stack)
+		    # http://stackoverflow.com/questions/1485046/how-can-i-extract-a-substring-enclosed-in-double-quotes-in-perl
 		    $extract_key = $1;
 		    
+		    # same thing here - extract and assign
 		    $_ =~ s/"(.*?)"//s;
 		    $extract_value = $1;
+		}
+		
+		# debug: perform web-request with timezone
+		if ($extract_key eq "timeZone")
+		{
+			my $contents = get("http://api.timezonedb.com/?key=EHUCC69JBOJT&zone=$extract_value");
+			print $contents;
 		}
 		
 		print "->[$extract_key] = $extract_value\n";
