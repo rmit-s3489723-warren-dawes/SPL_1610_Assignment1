@@ -2,13 +2,39 @@
 use strict;
 use warnings;
 
-open my $openfile, "emails.json" or die "Error opening file: $!\n";
+=pod
 
-my %kv_blocks;
+=head1 B<NAME>
+
+Assignment 1 - Event Extractor
+
+=head2 B<AUTHORS>
+
+=over 4
+
+=item *
+
+Warren Dawes
+
+=item *
+
+Candy Goodison
+
+=back
+
+=head2 B<DESCIPTION>
+
+An email event-extractor to gather dates for events based on contents of emails.
+
+=head2 C<Copyright Warren Dawes & Candy Goodison @ 2016>
+
+=cut
+
+open my $openfile, "emails.json" or die "Error opening file: $!\n";
 
 my $line_num = 0;
 
-my @emails; # An array of emails
+my @emails; # An array of email hashes
 my $emailCount = -1; #A count to track the position in the email array
 
 # open file and read each line
@@ -17,28 +43,16 @@ while (<$openfile>)
 	# debug: line number
 	$line_num++;
 	
-	# remove leading/trailing white-spaces
+	# remove leading/trailing white-spaces of current line
 	$_ =~ s/^\s+|\s+$//g;
 	
-	# if a new block we prepare for key/value pairs
-	if ($_ =~ m/{/)
-	{
-		$emailCount++;
-		next;
-	}
+	# get the key/value from current line
+	my ($key, $value) = contentExtractor();
 	
-	my $existingHash = $emails[$emailCount];
-	my $newHash = contentExtractor();
-	
-	if($existingHash && $newHash)
-	{
-		my$mergedHash = {%$existingHash, %$newHash};
-		$emails[$emailCount] = $mergedHash;
-	}
-	elsif($newHash)
-	{
-		$emails[$emailCount] = $newHash;
-	}
+	# if the key/value were found (within double-quotes and seperated by a colon)
+	if ($key && $value) {
+		keyValueParse($key, $value);
+	}	
 }
 
 #print data
@@ -54,7 +68,7 @@ for (my $i = 0; $i < (scalar @emails); $i++)
 	
 		for (my $j = 0; $j < (scalar @keys); $j++) 
 		{
-			print $keys[$j];
+			print "$i->$keys[$j]";
 			print " : ";
 			print $hash->{$keys[$j]};
 			print "\n";
@@ -68,16 +82,67 @@ for (my $i = 0; $i < (scalar @emails); $i++)
 
 close $openfile;
 
-#Subroutine that returns a hash from one 
+=pod
+
+=head2 KeyValueParse($key, $value)
+
+$key is a string of the key from the line, $value is a string of the value from the line.
+
+=cut
+
+#parse key/value for case
+sub keyValueParse {
+	my $key = shift;
+	my $value = shift;
+	
+	# if type doesnt equal email (should never occur)
+	# we exit, and if it does, we return (to not store key/value)
+	if ($key eq "type") {
+		if ($value ne "email") {
+			exit;
+		}
+		return;
+	}
+	
+	# we return on items to block storing of key/value
+	if ($key eq "items") {
+		return;
+	}
+	
+	# if sent key, increment email count
+	# and set default timeType
+	if ($key eq "sent") {
+		$emailCount++;
+		$emails[$emailCount]->{'timeType'} = "date";
+	}
+	
+	# if timeZone key specified, we change email type
+	# to datetime as the event has time-specific
+	if ($key eq "timeZone") {
+		$emails[$emailCount]->{'timeType'} = "datetime";
+	}
+	
+	$emails[$emailCount]->{$key} = $value;
+}
+
+=pod
+
+=head2 ContentExtractor() return ($key, $value)
+
+$key is a string of the key from the line, $value is a string of the value from the line.
+
+=cut
+
+#sub to extract key/value pair
 sub contentExtractor {
+	
+	# new variables
+	my $extract_key;
+	my $extract_value;
 	
 	# if within the key/value portion - we preserve contents
 	if ($_ =~ /^"/)
-	{
-		# new variables
-		my $extract_key;
-		my $extract_value;
-		
+	{		
 		# if starting with double-quotes
 		if($_ =~ /^"/)
 		{
@@ -91,11 +156,12 @@ sub contentExtractor {
 		    $_ =~ s/"(.*?)"//s;
 		    $extract_value = $1;
 		}
-		my $existingHash->{$extract_key} = $extract_value;
-		return $existingHash;
+		
 	}
+	
+	return $extract_key, $extract_value;
 }
-
+#end extract
 
 
 # # debug: perform web-request with timezone
