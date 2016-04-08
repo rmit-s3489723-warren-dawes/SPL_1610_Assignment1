@@ -43,9 +43,6 @@ while (<$openfile>)
 	# debug: line number
 	$line_num++;
 	
-	# remove leading/trailing white-spaces of current line
-	$_ =~ s/^\s+|\s+$//g;
-	
 	# get the key/value from current line
 	my ($key, $value) = contentExtractor();
 	
@@ -137,29 +134,17 @@ $key is a string of the key from the line, $value is a string of the value from 
 sub contentExtractor {
 	
 	# new variables
-	my $extract_key;
-	my $extract_value;
+	my @patterns = { "", "" };
 	
-	# if within the key/value portion - we preserve contents
-	if ($_ =~ /^"/)
-	{		
-		# if starting with double-quotes
-		if($_ =~ /^"/)
-		{
-		    # extract any data within paired double-quotes
-		    $_ =~ s/"(.*?)"//s;
-		    
-		    # assign key to extracted data ($1 from stack)
-		    # http://stackoverflow.com/questions/1485046/how-can-i-extract-a-substring-enclosed-in-double-quotes-in-perl
-		    $extract_key = $1;
-		    # same thing here - extract and assign
-		    $_ =~ s/"(.*?)"//s;
-		    $extract_value = $1;
-		}
-		
+	# if starting with double-quotes (targeted to $_)
+	if(m/"(.*?)"/x)
+	{
+	    # extract any data within paired double-quotes
+	    # and store in array to be returned
+	    @patterns = /"(.*?)"/gx;
 	}
 	
-	return $extract_key, $extract_value;
+	return @patterns;
 }
 #end extract
 
