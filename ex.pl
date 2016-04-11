@@ -85,7 +85,8 @@ close $openfile;
 EventExtractor::EmailPrinter(\@emails);
 
 my @events;
+my $eventKey = 0;
 
-EventExtractor::EmailContentParser(\@emails, \@events);
+EventExtractor::EmailContentParser(\@emails, \@events, \$eventKey);
 
 # now we parse the content field of each email
