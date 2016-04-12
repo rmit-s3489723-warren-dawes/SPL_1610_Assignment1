@@ -78,15 +78,14 @@ my %relativeSeek =
 	"fortnight" => "daytime",	#eg fortnight (^)
 );
 
-#populate with identified patterns
-#my %datePatterns =
-#(
-#	'\b$\b.{0,20}\d+:*\d*\s*[pa]m*' => "daytime",	#eg mon 4pm or monday 4pm
-#	#'\b$\b \d+:\d+|\b$\b \d+:\d+' => "time24h", 	#eg mon 23:00 or monday 23:00
-#);
-
-#case for 12 hour (with an optional colon) or 24 hour time (requires colon)
-my $daytimePattern = '$\s{0,1}?\d{1,2}\s{0,1}?[pa]m[-\s]{1,3}?\d{1,2}\s{0,1}?[pa]m|$\s{0,1}?\d{1,2}:+?\d{2}\s{0,1}?[pa]*m*[-\s]{1,3}?\d{1,2}:+?\d{2}\s{0,1}?[pa]*m*|$\s{0,1}?\d{1,2}\s{0,1}?[pa]m|$\s{0,1}?\d{1,2}:+?\d{1,2}\s{0,1}?[pa]*m*';
+#patterns are joined together with an | operator (or clause)
+#eg join('|', @daytimePattern)
+my @daytimePattern = 
+(
+	'$\s?\d{1,2}(?:\:{1}\d{2}\s?[pa]m|\s?[pa]m|\:{1}\d{2})(?:[-\s~]{1,3}?\d{1,2}(?:\:{1}\d{2}\s?[pa]m|\s?[pa]m|\:{1}\d{2}))',	#pattern for day/time with range = eg Monday 4:30pm - 5:30pm or Monday 4pm - 5:30pm or Monday 4:30pm - 5pm or Monday 4pm - 5pm or Monday 16:00 - 17:00
+	'$\s?\d{1,2}(?:\:{1}\d{2}\s?[pa]m|\s?[pa]m|\:{1}\d{2})',									#pattern for day/time = eg Monday 4pm or Monday 4:30pm or Monday 16:00
+	
+);
 
 =pod
 
@@ -144,115 +143,355 @@ sub EmailContentParser {
 							foreach my $day (keys %dayofweek)
 							{
 								#store copy and replace pattern
-								(my $usePattern = $daytimePattern) =~ s/\$/$day/g;
+								(my $usePattern = join('|', @daytimePattern)) =~ s/\$/$day/g;
+								
+								#print "$contentField\n";
 								
 								#each result found with pattern					
 								my @seek = $contentField =~ m/$usePattern/ig;
 								
 								foreach my $seekResult (@seek)
 								{
-									if ($seekResult)
+									if (not $seekResult) { next; }
+									
+									print $rsKey . "->" . $seekResult . "<-\n";										
+																			
+									#set sentdate to start of day
+									#so that we can set the start/end of the event accordingly
+									$eventStart -= ($eventStart->hour * 60 * 60);
+									$eventStart -= ($eventStart->minute * 60);
+									$eventStart -= $eventStart->second;
+									
+									#set event start
+									$eventStart += ONE_DAY * (($dayofweek{$day} - $eventStart->day_of_week) % 7);
+									
+									#strip day from result
+									$seekResult =~ s/$day\s|$day//ig;
+									
+									if ($seekResult =~ m/\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)(?:[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m))?/i)	#check for 12 hour time with the am/pm (spacing allowed) with/without range
 									{
-										print $usePattern . "->" . $daytimePattern . "<-\n";
-										print $rsKey . "->" . $seekResult . "<-\n";										
-										print $eventStart . "\n";
-																					
-										#set sentdate to start of day
-										#so that we can set the start/end of the event accordingly
-										$eventStart -= ($eventStart->hour * 60 * 60);
-										$eventStart -= ($eventStart->minute * 60);
-										$eventStart -= $eventStart->second;
+										print "IS 12 HOUR TIME\n";
 										
-										#set event start
-										$eventStart += ONE_DAY * (($dayofweek{$day} - $eventStart->day_of_week) % 7);
-										
-										print $eventStart . "\n";
-										
-										if ($seekResult =~ m/ \d{2}?\s*?[pa]m/i)		#check for single number 12 hour time with the am/pm (spacing allowed)
+										#check for duration						
+										if ($seekResult =~ m/\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)/ig)
 										{
-											if ($seekResult =~ m/ \d{2}?\s*?pm/i)
+											print "IS 12 HOUR TIME WITH DURATION\n";
+											
+											print "->$seekResult<-\n";
+											
+											#strip allowed spacing and replace with pre-determined -
+											$seekResult =~ s/[-\s~]{1,3}/-/g;
+											
+											(my $seekStart, my $seekEnd) = split(/-/, $seekResult);
+											
+											print "->$seekStart-$seekEnd<-\n";
+											
+											#if event is am, elsif pm
+											if ($seekStart =~ m/am$/ix && $seekEnd =~ m/am$/ix)
 											{
-												my $seekTime = join("", $seekResult =~ m/\d{2}?/ixg);
-												if ($seekTime eq "12")
+												#strip am
+												$seekStart =~ s/am//ig;
+												$seekEnd =~ s/am//ig;
+												
+												(my $startHour, my $startMinute);
+												(my $endHour, my $endMinute);
+												
+												#if time is precise (eg 4:30)
+												if ($seekStart =~ m/\d{1,2}:\d{2}/ix)
 												{
-													$eventStart += ($seekTime * (60 * 60));
+													($startHour, $startMinute) = split(/:/, $seekStart);
 												}
 												else
 												{
-													$eventStart += (($seekTime + 12) * (60 * 60));
+													($startHour, $startMinute) = ($seekStart, 0);
 												}
-												print "case is single number 12 hour time!\n->$seekTime<-\n";
-											}
-											elsif ($seekResult =~ m/ \d{2}?\s*?am/i)
-											{
-												my $seekTime = join("", $seekResult =~ m/\d{2}?/ixg);
-												$eventStart += ($seekTime * (60 * 60));
-												print "case is single number 12 hour time!\n->$seekTime<-\n";
-											}
-										}
-										elsif ($seekResult =~ m/ \d{2}?:\d{2}?\s*?[pa]m/i)	#check for double number 12 hour time with the colon and am/pm (spacing allowed)
-										{
-											if ($seekResult =~ m/ \d{2}?:\d{2}?\s*?pm/i)
-											{
-												my $seekTime = join("", $seekResult =~ m/\d{2}?:\d{2}?/ixg);
-												(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
-												print $seekHour . "->" . $seekMinute . "<-\n";
-												if ($seekHour eq "12")
+												
+												#if time is precise (eg 4:30)
+												if ($seekEnd =~ m/\d{1,2}:\d{2}/ix)
 												{
+													($endHour, $endMinute) = split(/:/, $seekEnd);
+												}
+												else
+												{
+													($endHour, $endMinute) = ($seekEnd, 0);
+												}
+												
+												#add hours and minutes
+												$eventStart += ($startHour * (60 * 60));
+												$eventStart += ($startMinute * 60);
+												
+												#set duration
+												$eventDuration = (($endHour - $startHour) * (60 * 60));
+												$eventDuration += ((abs($endMinute - $startMinute))  * 60);
+											}
+											elsif ($seekStart =~ m/pm$/ix && $seekEnd =~ m/pm$/ix)
+											{
+												#strip am
+												$seekStart =~ s/pm//ig;
+												$seekEnd =~ s/pm//ig;
+												
+												(my $startHour, my $startMinute);
+												(my $endHour, my $endMinute);
+												
+												#if time is precise (eg 4:30)
+												if ($seekStart =~ m/\d{1,2}:\d{2}/ix)
+												{
+													($startHour, $startMinute) = split(/:/, $seekStart);
+													if ($startHour != 12)
+													{
+														$startHour += 12;
+													}
+												}
+												else
+												{
+													($startHour, $startMinute) = ($seekStart, 0);
+													if ($startHour != 12)
+													{
+														$startHour += 12;
+													}
+												}
+												
+												#if time is precise (eg 4:30)
+												if ($seekEnd =~ m/\d{1,2}:\d{2}/ix)
+												{
+													($endHour, $endMinute) = split(/:/, $seekEnd);
+													if ($endHour != 12)
+													{
+														$endHour += 12;
+													}
+												}
+												else
+												{
+													($endHour, $endMinute) = ($seekEnd, 0);
+													if ($endHour != 12)
+													{
+														$endHour += 12;
+													}
+												}
+												
+												#add hours and minutes
+												$eventStart += ($startHour * (60 * 60));
+												$eventStart += ($startMinute * 60);
+												
+												#set duration
+												$eventDuration = (($endHour - $startHour) * (60 * 60));
+												$eventDuration += ((abs($endMinute - $startMinute))  * 60);
+											}
+											elsif ($seekStart =~ m/am$/ix && $seekEnd =~ m/pm$/ix)
+											{
+												#strip am
+												$seekStart =~ s/am//ig;
+												$seekEnd =~ s/pm//ig;
+												
+												(my $startHour, my $startMinute);
+												(my $endHour, my $endMinute);
+												
+												#if time is precise (eg 4:30)
+												if ($seekStart =~ m/\d{1,2}:\d{2}/ix)
+												{
+													($startHour, $startMinute) = split(/:/, $seekStart);
+												}
+												else
+												{
+													($startHour, $startMinute) = ($seekStart, 0);
+												}
+												
+												#if time is precise (eg 4:30)
+												if ($seekEnd =~ m/\d{1,2}:\d{2}/ix)
+												{
+													($endHour, $endMinute) = split(/:/, $seekEnd);
+													if ($endHour != 12)
+													{
+														$endHour += 12;
+													}
+												}
+												else
+												{
+													($endHour, $endMinute) = ($seekEnd, 0);
+													if ($endHour != 12)
+													{
+														$endHour += 12;
+													}
+												}
+												
+												#add hours and minutes
+												$eventStart += ($startHour * (60 * 60));
+												$eventStart += ($startMinute * 60);
+												
+												#set duration
+												$eventDuration = (($endHour - $startHour) * (60 * 60));
+												$eventDuration += ((abs($endMinute - $startMinute))  * 60);
+											}
+											
+											print "->$eventStart|$eventDuration<-\n";
+										}
+										else
+										{
+											print "IS 12 HOUR TIME WITHOUT DURATION\n";
+											
+											my $seekTime = join("-", $seekResult =~ m/\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)/ig);
+											
+											#strip spaces
+											$seekTime =~ s/\s//g;
+											
+											print "->$seekTime<-\n";
+											
+											#if event is am, elsif pm
+											if ($seekTime =~ m/am$/ix)
+											{
+												#strip am
+												$seekTime =~ s/am//ig;
+												
+												#if time is precise (eg 4:30)
+												if ($seekTime =~ m/\d{1,2}:\d{2}/ix)
+												{
+													(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
+
+													#add hours and minutes to time
+													$eventStart += ($seekHour * (60 * 60));
+													$eventStart += ($seekMinute * 60);
+												}
+												else
+												{
+													my $seekHour = $seekTime;
+
+													#add hours and minutes to time
 													$eventStart += ($seekHour * (60 * 60));
 												}
+											}
+											elsif ($seekTime =~ m/pm$/ix)
+											{
+												#strip pm
+												$seekTime =~ s/pm//ig;
+												
+												#if time is precise (eg 4:30)
+												if ($seekTime =~ m/\d{1,2}:\d{2}/ix)
+												{
+													(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
+
+													if ($seekHour == 12)
+													{
+														#add only the 12 since its noon
+														$eventStart += ($seekHour * (60 * 60));
+													}
+													else
+													{
+														#add 12 to the number (eg 1pm = 12 + 1 = 13:00 in 24 hour time)
+														$eventStart += (($seekHour + 12) * (60 * 60));
+													}
+
+													#add minutes
+													$eventStart += ($seekMinute * 60);
+												}
 												else
 												{
-													$eventStart += (($seekHour + 12) * (60 * 60));
+													my $seekHour = $seekTime;
+
+													if ($seekHour == 12)
+													{
+														#add only the 12 since its noon
+														$eventStart += ($seekHour * (60 * 60));
+													}
+													else
+													{
+														#add 12 to the number (eg 1pm = 12 + 1 = 13:00 in 24 hour time)
+														$eventStart += (($seekHour + 12) * (60 * 60));
+													}
 												}
-												$eventStart += ($seekMinute * 60);
-												print "case is double number 12 hour time!\n->$seekTime<-\n";
 											}
-											elsif ($seekResult =~ m/ \d{2}?:\d{2}?\s*?am/i)
-											{
-												my $seekTime = join("", $seekResult =~ m/\d{2}?:\d{2}?/ixg);
-												(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
-												print $seekHour . "->" . $seekMinute . "<-\n";
-												$eventStart += ($seekHour * (60 * 60));
-												$eventStart += ($seekMinute * 60);
-												print "case is double number 12 hour time!\n->$seekTime<-\n";
-											}
+											
+											print "->$seekTime<-\n";
 										}
-										elsif ($seekResult =~ m/ \d{2}?:\d{2}?/i)		#check for 24 hour time
+									}
+									elsif ($seekResult =~ m/\d{2}\:\d{2}(?:[-\s~]{1,3}?\d{2}\:\d{2})?/ig)	#check for 24 hour time (spacing allowed) with/without range
+									{
+										print "IS 24 HOUR TIME\n";
+										
+										if ($seekResult =~ m/\d{2}:\d{2}[-\s~]{1,3}?\d{2}:\d{2}/ig)
 										{
-											my $seekTime = join("", $seekResult =~ m/\d{2}?:\d{2}?/ixg);
-											(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
-											print $seekHour . "->" . $seekMinute . "<-\n";
-											$eventStart += ($seekHour * (60 * 60));
-											$eventStart += ($seekMinute * 60);
-											print "case is 24 hour time!\n->$seekTime<-\n";
+											print "IS 24 HOUR TIME WITH DURATION\n";
+											
+											print "$seekResult\n";
+											
+											#strip allowed spacing and replace with pre-determined -
+											$seekResult =~ s/[-\s~]{1,3}/-/g;
+											
+											print "$seekResult\n";
+											
+											#split to split range
+											(my $seekStart, my $seekEnd) = split(/-/, $seekResult);
+																						
+											(my $startHour, my $startMinute);
+											(my $endHour, my $endMinute);
+											
+											#split starting time by colon
+											($startHour, $startMinute) = split(/:/, $seekStart);
+											
+											#split ending time by colon
+											($endHour, $endMinute) = split(/:/, $seekEnd);
+
+											#add hours and minutes
+											$eventStart += ($startHour * (60 * 60));
+											$eventStart += ($startMinute * 60);
+											
+											#set duration
+											$eventDuration = (($endHour - $startHour) * (60 * 60));
+											$eventDuration += ((abs($endMinute - $startMinute))  * 60);
+											
+											print "->$eventStart|$eventDuration<-\n";
 										}
-										
-										print $eventStart . "\n";
-										
-										#print "$seekResult\n";
-										
-										#my @seekTimes = $seekResult =~ m/\d+/g;
-										
-										#foreach my $seekTime (@seekTimes)
-										#{
-										#	print "$seekTime\n";
-										#}
-										
-										#print "$seekResult\n";
+										else
+										{
+											print "IS 24 HOUR TIME WITHOUT DURATION\n";
+											
+											print "$seekResult\n";
+											
+											my $seekTime = join("-", $seekResult =~ m/\d{2}:\d{2}/ig);
+											
+											(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
+
+											if ($seekHour == 12)
+											{
+												#add only the 12 since its noon
+												$eventStart += ($seekHour * (60 * 60));
+											}
+											else
+											{
+												#add 12 to the number (eg 1pm = 12 + 1 = 13:00 in 24 hour time)
+												$eventStart += (($seekHour + 12) * (60 * 60));
+											}
+
+											#add minutes
+											$eventStart += ($seekMinute * 60);
+											
+											print "->$seekTime<-\n";
+										}
+									}
+									
+									#print $eventStart . "\n";
+									
+									#print "$seekResult\n";
+									
+									#my @seekTimes = $seekResult =~ m/\d+/g;
+									
+									#foreach my $seekTime (@seekTimes)
+									#{
+									#	print "$seekTime\n";
+									#}
+									
+									#print "$seekResult\n";
 									
 									#my $todayDate = strftime("%Y-%m-%dT%H:%M:%S.00Z", gmtime());
 									
 									
-										my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-										my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+									my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+									my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
 									
-										EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
-										EventAppend($events, $$eventKey, "start", "timezone", $timeZoneField);
-										EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
-										EventAppend($events, $$eventKey, "end", "timezone", $timeZoneField);
-										$$eventKey++;
-									}
+									EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
+									EventAppend($events, $$eventKey, "start", "timezone", $timeZoneField);
+									EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
+									EventAppend($events, $$eventKey, "end", "timezone", $timeZoneField);
+									$$eventKey++;
 								}
 							}
 						}
