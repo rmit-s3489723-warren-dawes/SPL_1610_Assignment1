@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+use EventExtractor;
 
 =pod
 
@@ -30,12 +31,36 @@ An email event-extractor to gather dates for events based on contents of emails.
 
 =cut
 
-open my $openfile, "emails.json" or die "Error opening file: $!\n";
+my $inputFile;
+my $outputFile;
+
+# upperbound not set aka -1
+if ($#ARGV == -1)
+{
+	$inputFile = "emails.json";
+	$outputFile = "events.json";
+}
+
+# upperbound set to 0 aka inputFile specified
+if ($#ARGV == 0)
+{
+	$inputFile = $ARGV[0];
+}
+
+# upperbound set to 1 aka inputFile and outputFile specified
+if ($#ARGV == 1)
+{	
+	$inputFile = $ARGV[0];
+	$outputFile = $ARGV[1];
+}
+
+# attempt to open via inputFile or die
+open my $openfile, $inputFile or die "Error opening file: $!\n";
 
 my $line_num = 0;
 
 my @emails; # An array of email hashes
-my $emailCount = -1; #A count to track the position in the email array
+my $emailKey = -1; #A count to track the position in the email array
 
 # open file and read each line
 while (<$openfile>)
@@ -44,114 +69,24 @@ while (<$openfile>)
 	$line_num++;
 	
 	# get the key/value from current line
-	my ($key, $value) = contentExtractor();
+	my ($key, $value) = EventExtractor::KeyValueExtractor();
 	
 	# if the key/value were found (within double-quotes and seperated by a colon)
-	if ($key && $value) {
-		keyValueParse($key, $value);
+	if ($key && $value)
+	{
+		# generate struct with key/value
+		# passing by reference
+		EventExtractor::EmailStructBuilder(\@emails, \$emailKey, $key, $value);
 	}	
 }
 
-#print data
-print "Number of emails: ";
-print (scalar @emails);
-print "\n-------------------\n";
-for (my $i = 0; $i < (scalar @emails); $i++) 
-{
-	my $hash = $emails[$i];
-	if ($hash) 
-	{
-		my @keys = keys $hash;
-	
-		for (my $j = 0; $j < (scalar @keys); $j++) 
-		{
-			print "$i->$keys[$j]";
-			print " : ";
-			print $hash->{$keys[$j]};
-			print "\n";
-		}
-	
-		print "-------------------\n";
-	}
-	
-}
-#end print data
-
 close $openfile;
 
-=pod
+EventExtractor::EmailPrinter(\@emails);
 
-=head2 KeyValueParse($key, $value)
+my @events;
+my $eventKey = 0;
 
-$key is a string of the key from the line, $value is a string of the value from the line.
+EventExtractor::EmailContentParser(\@emails, \@events, \$eventKey);
 
-=cut
-
-#parse key/value for case
-sub keyValueParse {
-	my $key = shift;
-	my $value = shift;
-	
-	# if type doesnt equal email (should never occur)
-	# we exit, and if it does, we return (to not store key/value)
-	if ($key eq "type") {
-		if ($value ne "email") {
-			exit;
-		}
-		return;
-	}
-	
-	# we return on items to block storing of key/value
-	if ($key eq "items") {
-		return;
-	}
-	
-	# if sent key, increment email count
-	# and set default timeType
-	if ($key eq "sent") {
-		$emailCount++;
-		$emails[$emailCount]->{'timeType'} = "date";
-	}
-	
-	# if timeZone key specified, we change email type
-	# to datetime as the event has time-specific
-	if ($key eq "timeZone") {
-		$emails[$emailCount]->{'timeType'} = "datetime";
-	}
-	
-	$emails[$emailCount]->{$key} = $value;
-}
-
-=pod
-
-=head2 ContentExtractor() return ($key, $value)
-
-$key is a string of the key from the line, $value is a string of the value from the line.
-
-=cut
-
-#sub to extract key/value pair
-sub contentExtractor {
-	
-	# new variables
-	my @patterns = { "", "" };
-	
-	# if starting with double-quotes (targeted to $_)
-	if(m/"(.*?)"/x)
-	{
-	    # extract any data within paired double-quotes
-	    # and store in array to be returned
-	    @patterns = /"(.*?)"/gx;
-	}
-	
-	return @patterns;
-}
-#end extract
-
-
-# # debug: perform web-request with timezone
-		# if ($extract_key eq "timeZone")
-		# {
-			# my $contents = get("http://api.timezonedb.com/?key=EHUCC69JBOJT&zone=$extract_value");
-			# print $contents;
-		# }
+# now we parse the content field of each email
