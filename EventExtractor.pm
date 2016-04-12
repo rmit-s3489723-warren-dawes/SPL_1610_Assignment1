@@ -173,11 +173,9 @@ sub EmailContentParser {
 										print "IS 12 HOUR TIME\n";
 										
 										#check for duration						
-										if ($seekResult =~ m/\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)/ig)
+										if ($seekResult =~ m/\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m)/i)
 										{
 											print "IS 12 HOUR TIME WITH DURATION\n";
-											
-											print "->$seekResult<-\n";
 											
 											#strip allowed spacing and replace with pre-determined -
 											$seekResult =~ s/[-\s~]{1,3}/-/g;
@@ -403,20 +401,18 @@ sub EmailContentParser {
 											print "->$seekTime<-\n";
 										}
 									}
-									elsif ($seekResult =~ m/\d{2}\:\d{2}(?:[-\s~]{1,3}?\d{2}\:\d{2})?/ig)	#check for 24 hour time (spacing allowed) with/without range
+									elsif ($seekResult =~ m/\d{2}\:\d{2}(?:[-\s~]{1,3}?\d{2}\:\d{2})?/i)	#check for 24 hour time (spacing allowed) with/without range
 									{
 										print "IS 24 HOUR TIME\n";
 										
-										if ($seekResult =~ m/\d{2}:\d{2}[-\s~]{1,3}?\d{2}:\d{2}/ig)
+										print "$seekResult\n";
+										
+										if ($seekResult =~ /\d{2}:\d{2}[-\s~]{1,3}?\d{2}:\d{2}/i)
 										{
 											print "IS 24 HOUR TIME WITH DURATION\n";
 											
-											print "$seekResult\n";
-											
 											#strip allowed spacing and replace with pre-determined -
 											$seekResult =~ s/[-\s~]{1,3}/-/g;
-											
-											print "$seekResult\n";
 											
 											#split to split range
 											(my $seekStart, my $seekEnd) = split(/-/, $seekResult);
@@ -446,9 +442,7 @@ sub EmailContentParser {
 											
 											print "$seekResult\n";
 											
-											my $seekTime = join("-", $seekResult =~ m/\d{2}:\d{2}/ig);
-											
-											(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
+											(my $seekHour, my $seekMinute) = split(/:/, $seekResult);
 
 											if ($seekHour == 12)
 											{
@@ -464,25 +458,9 @@ sub EmailContentParser {
 											#add minutes
 											$eventStart += ($seekMinute * 60);
 											
-											print "->$seekTime<-\n";
+											print "->$seekResult<-\n";
 										}
-									}
-									
-									#print $eventStart . "\n";
-									
-									#print "$seekResult\n";
-									
-									#my @seekTimes = $seekResult =~ m/\d+/g;
-									
-									#foreach my $seekTime (@seekTimes)
-									#{
-									#	print "$seekTime\n";
-									#}
-									
-									#print "$seekResult\n";
-									
-									#my $todayDate = strftime("%Y-%m-%dT%H:%M:%S.00Z", gmtime());
-									
+									}									
 									
 									my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
 									my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
