@@ -172,7 +172,8 @@ sub EmailContentParser {
 					{
 						print "$rsMatch\n";
 						
-						#if the seek type is daytime	
+						#if the seek type is daytime
+						#eg next/this
 						if ($relativeSeek{$relativeTerm} eq "daytime")
 						{
 							EventDayTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, $relativeTerm);
@@ -186,6 +187,15 @@ sub EmailContentParser {
 						}
 					}
 				}
+				
+				#iterate for date searching
+				
+				
+				#seek remaining to match any daytime events
+				EventDayTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, "");
+				
+				#seek remaining to match any time events
+				EventTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, "");
 			}
 		}
 	}
@@ -255,12 +265,11 @@ sub EventTimeProcess {
 				$eventStart += ONE_DAY * 1;
 			}			
 			
-			print "$eventTrigger\n";
-			
 			#strip day from result
 			$eventTrigger =~ s/$relativeTerm at |$relativeTerm between |$relativeTerm\s|$relativeTerm//ig;
 
-			print "$eventTrigger\n";
+			#strip leading and trailing whitespaces
+			$eventTrigger =~ s/^\s*|\s*$//g;
 
 			EventTimeParse($eventTrigger, \$eventStart, \$eventDuration);
 		
@@ -311,6 +320,12 @@ sub EventDayTimeProcess {
 			if (not $eventTrigger) { next; }
 			
 			DebugPrint("->$eventTrigger<-\n");										
+			
+			DebugPrint("->$$contentField<-\n");
+			
+			$$contentField =~ s/$eventTrigger//;	
+			
+			DebugPrint("->$$contentField<-\n");										
 													
 			#set sentdate to start of day
 			#so that we can set the start/end of the event accordingly
@@ -329,6 +344,9 @@ sub EventDayTimeProcess {
 			
 			#strip day from result
 			$eventTrigger =~ s/$day\s|$day//ig;
+
+			#strip leading and trailing whitespaces
+			$eventTrigger =~ s/^\s*|\s*$//g;
 
 			EventTimeParse($eventTrigger, \$eventStart, \$eventDuration);
 		
