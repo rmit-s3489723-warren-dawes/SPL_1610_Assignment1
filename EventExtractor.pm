@@ -92,7 +92,6 @@ my @daytimePattern =
 (
 	#pattern for day/time with range = eg Monday 4:30pm - 5:30pm or Monday 4pm - 5:30pm or Monday 4:30pm - 5pm or Monday 4pm - 5pm or Monday 16:00 - 17:00
 	#pattern for day/time = eg Monday 4pm or Monday 4:30pm or Monday 16:00
-	
 	'$\s?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2})(?:[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2}))?',				
 );
 
@@ -101,10 +100,10 @@ my @daytimePattern =
 my @timePattern = 
 (
 	#pattern for time with range = eg today 4pm or today at 4pm or today 4pm - 6pm or today between 4pm - 6pm (allows for precise time - 4:00pm etc)
-
 	'$(?: at | between |\s)\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2})(?:[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2}))?',	
 );
 
+my %datediff;
 
 =pod
 
@@ -118,8 +117,41 @@ sub EmailContentParser {
 	my $emails = shift;
 	my $events = shift;
 	my $eventKey = shift;
+	my $emailKey = 0;
 	
-	for (my $emailKey = 0; $emailKey < (scalar @$emails); $emailKey++)
+	#construct global datediff hash
+	for ($emailKey = 0; $emailKey < (scalar @$emails); $emailKey++)
+	{
+		my $email = $$emails[$emailKey];
+		my $timeTypeField = $email->{'timeType'};
+		my $timeZoneField = $email->{'timeZone'};
+		
+		if ($timeTypeField eq 'datetime')
+		{
+			$datediff{$timeZoneField} = 0;
+		}
+	}	
+	
+	#fetch datediff for future use
+	foreach my $timezone (keys %datediff)
+	{
+		#use api to fetch datediff	
+		my $contents = get("http://api.timezonedb.com/?key=EHUCC69JBOJT&zone=$timezone&format=json");
+		
+		DebugPrint("->$contents<-\n");
+		
+		my %json = KeyValueExtractor($contents);
+		
+		my $gmtOffset = $json{'gmtOffset'};
+		
+		DebugPrint("->$timezone|$gmtOffset<-\n");
+		
+		$datediff{$timezone} = $gmtOffset;
+	}
+	
+	
+	#parse content field to seek
+	for ($emailKey = 0; $emailKey < (scalar @$emails); $emailKey++)
 	{
 		my $email = $$emails[$emailKey];
 		if ($email) 
@@ -199,20 +231,12 @@ sub EventTimeProcess {
 			
 			DebugPrint("->$eventTrigger<-\n");										
 			
-			#check if event is in future		
-			if ($relativeTerm eq "today")
-			{				
-				my $contents = get("http://api.timezonedb.com/?key=EHUCC69JBOJT&zone=$$timeZoneField&format=json");
-				my %json = KeyValueExtractor($contents, '"(.*?)"\s?:\s?\d+|"(.*?)"\s?:\s?"(.*?)"', ':\d+|"(.*?)"');
-				
-				foreach my $jsonkey (keys %json)
-				{
-					DebugPrint("->$jsonkey|" . $json{$jsonkey} . "<-\n");
-				}
-				
-				exit;
-			}
-													
+			DebugPrint("->$$contentField<-\n");
+			
+			$$contentField =~ s/$eventTrigger//;	
+			
+			DebugPrint("->$$contentField<-\n");
+												
 			#set sentdate to start of day
 			#so that we can set the start/end of the event accordingly
 			$eventStart -= ($eventStart->hour * 60 * 60);
@@ -231,8 +255,12 @@ sub EventTimeProcess {
 				$eventStart += ONE_DAY * 1;
 			}			
 			
+			print "$eventTrigger\n";
+			
 			#strip day from result
-			$eventTrigger =~ s/$day\s|$day//ig;
+			$eventTrigger =~ s/$relativeTerm at |$relativeTerm between |$relativeTerm\s|$relativeTerm//ig;
+
+			print "$eventTrigger\n";
 
 			EventTimeParse($eventTrigger, \$eventStart, \$eventDuration);
 		
@@ -749,8 +777,6 @@ sub KeyValueExtractor {
 	
 	#assign variable
 	my $string = shift;
-	my $pattern = shift;
-	my $sub = shift;
 	
 	#strip leading and trailing whitespaces
 	$string =~ s/^\s*|\s*$//g;
@@ -758,31 +784,12 @@ sub KeyValueExtractor {
 	#strip spacing betweek key/value
 	$string =~ s/"\s*:/":/g;
 	$string =~ s/:\s*"/:"/g;
-	
-	DebugPrint("->$pattern|$string<-\n");
-	DebugPrint("->$sub|$string<-\n");
-	
-	my @patterns;
-	
-	if ($string =~ m/$pattern/i)
-	{
-		DebugPrint("KEY/VALUE->$string<-\n");
-		
-		@patterns = $string =~ m/$sub/ig;
-		
-		foreach my $item (@patterns)
-		{
-			if ($item)
-			{
-				DebugPrint("EXTRACTED->$item<-\n");
-			}
-		}
-		
-		DebugPrint("-------------------\n");
-	}
 
-	return @patterns;
-
+	#seek for key/value pairs = eg "timeZone":"Australia/Melbourne" or "timestamp":1497895235
+	my @found = $string =~ m/"(.*?)":"(.*?)"|"(.*?)":(\d+)/ig;
+	
+	#group to only defined entries
+	return grep defined, @found;
 }
 
 =pod
