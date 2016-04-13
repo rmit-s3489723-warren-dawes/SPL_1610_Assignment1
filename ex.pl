@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
-use EventExtractor;
+use EventExtractor qw(DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser);
 
 =pod
 
@@ -35,8 +35,6 @@ my ($inputFile, $outputFile)=commandArgsHandler(\@ARGV);
 
 my $openFile = fileOpener($inputFile);
 
-
-
 my $line_num = 0;
 
 my @emails; # An array of email hashes
@@ -49,27 +47,27 @@ while (<$openFile>)
 	$line_num++;
 	
 	# get the key/value from current line
-	my ($key, $value) = EventExtractor::KeyValueExtractor();
+	my ($key, $value) = KeyValueExtractor($_, '"(.*?)"\s?:\s?"(.*?)"', '"(.*?)"');
 	
 	# if the key/value were found (within double-quotes and seperated by a colon)
 	if ($key && $value)
 	{
+		DebugPrint("->$key|$value<-\n");
+		
 		# generate struct with key/value
 		# passing by reference
-		EventExtractor::EmailStructBuilder(\@emails, \$emailKey, $key, $value);
+		EmailStructBuilder(\@emails, \$emailKey, $key, $value);
 	}	
 }
 
 close $openFile;
 
-EventExtractor::EmailPrinter(\@emails);
+EmailPrinter(\@emails);
 
 my @events;
 my $eventKey = 0;
 
-EventExtractor::EmailContentParser(\@emails, \@events, \$eventKey);
-
-# now we parse the content field of each email
+EmailContentParser(\@emails, \@events, \$eventKey);
 
 sub commandArgsHandler{
 		
@@ -107,7 +105,7 @@ sub commandArgsHandler{
 
 sub fileOpener{
 	# attempt to open via inputFile or die
-open my $openFile, $inputFile or do{
+	open my $openFile, $inputFile or do{
 	print "Error opening file \"$inputFile\": $!. Please enter a valid file.\n";
 	exit;
 	};
