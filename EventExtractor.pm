@@ -103,7 +103,17 @@ my @timePattern =
 	'$(?: at | between |\s)\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2})(?:[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2}))?',	
 );
 
-my %datediff;
+my @datePattern = 
+{
+	'\d{1,2} $ \d{2,4}',	#regex does some shit aka day (1 or 2 digit) + month + year (2 or 4 digit) = 20 April 2006
+}
+
+#[month/date]or[date/month] = 19 April or April 19 or 19th April or April 19th
+#[time with am/pm or colon] = 4pm or 4:30pm or 14:00 -> \d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2})(?:[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2}))?
+#[year] = 98 or 1998
+
+
+my %datediff = ('Australia/Melbourne' => 0);
 
 =pod
 
@@ -162,7 +172,7 @@ sub EmailContentParser {
 			my $timeTypeField = $email->{'timeType'};
 			my $timeZoneField = $email->{'timeZone'};
 			
-			if ($emailKey == 1) #&& $emailKey <= 3)
+			if ($emailKey > 0) #&& $emailKey <= 3)
 			{								
 				#iterate for relative seek
 				foreach my $relativeTerm (keys %relativeSeek)
@@ -189,7 +199,7 @@ sub EmailContentParser {
 				}
 				
 				#iterate for date searching
-				
+				EventDateProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, "");
 				
 				#seek remaining to match any daytime events
 				EventDayTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, "");
@@ -657,6 +667,89 @@ sub EventTimeParse {
 			DebugPrint("->$eventStart<-\n");
 		}
 	}
+}
+
+sub EventDateProcess{
+	
+	my $events = shift;
+	my $eventKey = shift;
+	my $sentField = shift;
+	my $contentField = shift;
+	my $timeTypeField = shift;
+	my $timeZoneField = shift;
+	my $relativeTerm = shift;
+	
+	#strip spaces/specific characters
+	$$sentField =~ s/\s+|T+|-+|:+|.00Z+//g;  #thids makes sent field into a numbers only format ie 20160312 (24hr)
+	
+	#convert to a friendly format (inclusive of day)
+	my $sentDate = Time::Piece->strptime($$sentField, "%Y%m%d%H%M%S");
+	
+	#default duration = 1 hour (3600 seconds)
+	my $eventDuration = 3600; #ONE_DAY is 24 hours of seconds
+	my $eventStart = $sentDate;
+
+	#attempt to discover the month (either short-hand or full-word)
+	foreach my $month (keys %monthofyear)
+	{
+		#store copy and replace pattern
+		my $usePattern = join('|', @datePattern);
+		#replace $ symbol in regex with month
+		$usePattern =~ s/\$/$month/g;
+		
+		#each result found with pattern (which has $ replaced with month)			
+		my @dateSeek = $$contentField =~ m/$usePattern/ig;
+		
+		foreach my $eventTrigger (@dateSeek)
+		{
+			if (not $eventTrigger) { next; }
+			
+			DebugPrint("->$eventTrigger<-\n");										
+			
+			DebugPrint("->$$contentField<-\n");
+			
+			$$contentField =~ s/$eventTrigger//;	
+			
+			DebugPrint("->$$contentField<-\n");										
+													
+			#use the date (within $eventTrigger) to assign start date
+			#most likely have to do some m// here to work out if with time (eg 20 April 2006, 4pm or 20 April 2006, 4pm - 8pm)
+			#then if with time, extract via EventTimeParse(); which adds to $eventStart and sets $eventDuration
+			
+			#at this point $eventStart must be the day/month/year of the event so far (eg April 19th 1998 @ 00:00)
+			
+			#strip day from result
+			$eventTrigger =~ s/$month\s|$month//ig;
+
+			#strip leading and trailing whitespaces
+			$eventTrigger =~ s/^\s*|\s*$//g;
+
+			#note: above two regex strip invalid characters
+			#$eventTrigger should be just a time at this stage to be valid for EventTimeParse() (eg "4pm" or "4pm - 8pm")
+			#$eventDuration should be ONE_DAY at this point, if modified then a range was supplied (eg 4pm - 8pm = $eventDuration of 4 hours in seconds)
+			EventTimeParse($eventTrigger, \$eventStart, \$eventDuration);
+		
+			#ie 4pm - 5pm or 4pm 5pm or 4:30pm - 5:30pm or 16:00 - 19:00 = examples of $eventTrigger
+			#note: EVENT TRIGGER MUST ONLY CONTAIN TIME - NO SPACES OR OTHER CHARACTERS
+			my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			
+			EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
+			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+			EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
+			EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+			$$eventKey++;
+			
+			#assume theres no range of dates if there's a time its 1 hour duration, f the time has a range it is custom, if its got no time it's all day
+			#Don't need to set default start time
+			#need to extract day month year
+			#if time is there extract it and call the evnttimeparser
+			#if it's an all day  just add it to the event array
+			#if it has a time as well pass it to the eventstart/end subs
+			#then appened to events
+		}
+	}
+	
 }
 
 sub EventAppend {
