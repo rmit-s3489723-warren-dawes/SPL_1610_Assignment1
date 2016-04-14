@@ -31,31 +31,11 @@ An email event-extractor to gather dates for events based on contents of emails.
 
 =cut
 
-my $inputFile;
-my $outputFile;
+my ($inputFile, $outputFile)=commandArgsHandler(\@ARGV);
 
-# upperbound not set aka -1
-if ($#ARGV == -1)
-{
-	$inputFile = "emails.json";
-	$outputFile = "events.json";
-}
+my $openFile = fileOpener($inputFile);
 
-# upperbound set to 0 aka inputFile specified
-if ($#ARGV == 0)
-{
-	$inputFile = $ARGV[0];
-}
 
-# upperbound set to 1 aka inputFile and outputFile specified
-if ($#ARGV == 1)
-{	
-	$inputFile = $ARGV[0];
-	$outputFile = $ARGV[1];
-}
-
-# attempt to open via inputFile or die
-open my $openfile, $inputFile or die "Error opening file: $!\n";
 
 my $line_num = 0;
 
@@ -63,7 +43,7 @@ my @emails; # An array of email hashes
 my $emailKey = -1; #A count to track the position in the email array
 
 # open file and read each line
-while (<$openfile>)
+while (<$openFile>)
 {	
 	# debug: line number
 	$line_num++;
@@ -80,7 +60,7 @@ while (<$openfile>)
 	}	
 }
 
-close $openfile;
+close $openFile;
 
 EventExtractor::EmailPrinter(\@emails);
 
@@ -90,3 +70,47 @@ my $eventKey = 0;
 EventExtractor::EmailContentParser(\@emails, \@events, \$eventKey);
 
 # now we parse the content field of each email
+
+sub commandArgsHandler{
+		
+	# upperbound not set aka -1
+	if ($#ARGV == -1)
+	{
+		$inputFile = "emails.json";
+		$outputFile = "events.json";
+		print "You didn't specify any input or output files. We will try to use default input file \"emails.json\"and print to default output file \"events.json\".\n";
+	}
+
+	# upperbound set to 0 aka inputFile specified
+	if ($#ARGV == 0)
+	{
+		$inputFile = $ARGV[0];
+		
+		if ($inputFile !~/json/)
+		{
+			print "Invalid file, please choose a .json type file to read from.\n";
+			exit;
+		}
+		print "We will use \"$inputFile\" to read events from, and print to default output file \"events.json\".\n";
+	}
+
+	# upperbound set to 1 aka inputFile and outputFile specified
+	if ($#ARGV == 1)
+	{	
+		$inputFile = $ARGV[0];
+		$outputFile = $ARGV[1];
+		print "We will read from \"$inputFile\" and output events to \"outputFile\".\n";
+	}
+
+	return($inputFile, $outputFile);
+}
+
+sub fileOpener{
+	# attempt to open via inputFile or die
+open my $openFile, $inputFile or do{
+	print "Error opening file \"$inputFile\": $!. Please enter a valid file.\n";
+	exit;
+	};
+
+	return $openFile;
+}
