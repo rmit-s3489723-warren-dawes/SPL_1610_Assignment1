@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
-use EventExtractor;
+use EventExtractor qw(DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser);
 
 =pod
 
@@ -31,11 +31,9 @@ An email event-extractor to gather dates for events based on contents of emails.
 
 =cut
 
-my ($inputFile, $outputFile)=commandArgsHandler(\@ARGV);
+my ($inputFile, $outputFile)=CommandArgsHandler(\@ARGV);
 
-my $openFile = fileOpener($inputFile);
-
-
+my $openFile = FileOpener($inputFile);
 
 my $line_num = 0;
 
@@ -49,36 +47,34 @@ while (<$openFile>)
 	$line_num++;
 	
 	# get the key/value from current line
-	my ($key, $value) = EventExtractor::KeyValueExtractor();
+	my ($key, $value) = KeyValueExtractor($_);
 	
 	# if the key/value were found (within double-quotes and seperated by a colon)
 	if ($key && $value)
 	{
 		# generate struct with key/value
 		# passing by reference
-		EventExtractor::EmailStructBuilder(\@emails, \$emailKey, $key, $value);
+		EmailStructBuilder(\@emails, \$emailKey, $key, $value);
 	}	
 }
 
 close $openFile;
 
-EventExtractor::EmailPrinter(\@emails);
+EmailPrinter(\@emails);
 
 my @events;
 my $eventKey = 0;
 
-EventExtractor::EmailContentParser(\@emails, \@events, \$eventKey);
+EmailContentParser(\@emails, \@events, \$eventKey);
 
-# now we parse the content field of each email
-
-sub commandArgsHandler{
+sub CommandArgsHandler {
 		
 	# upperbound not set aka -1
 	if ($#ARGV == -1)
 	{
 		$inputFile = "emails.json";
 		$outputFile = "events.json";
-		print "You didn't specify any input or output files. We will try to use default input file \"emails.json\"and print to default output file \"events.json\".\n";
+		PrintToConsole("You didn't specify any input or output files. We will try to use default input file \"emails.json\"and print to default output file \"events.json\".\n");
 	}
 
 	# upperbound set to 0 aka inputFile specified
@@ -88,10 +84,10 @@ sub commandArgsHandler{
 		
 		if ($inputFile !~/json/)
 		{
-			print "Invalid file, please choose a .json type file to read from.\n";
+			PrintToConsole("Invalid file, please choose a .json type file to read from.\n");
 			exit;
 		}
-		print "We will use \"$inputFile\" to read events from, and print to default output file \"events.json\".\n";
+		PrintToConsole("We will use \"$inputFile\" to read events from, and print to default output file \"events.json\".\n");
 	}
 
 	# upperbound set to 1 aka inputFile and outputFile specified
@@ -99,18 +95,22 @@ sub commandArgsHandler{
 	{	
 		$inputFile = $ARGV[0];
 		$outputFile = $ARGV[1];
-		print "We will read from \"$inputFile\" and output events to \"outputFile\".\n";
+		PrintToConsole("We will read from \"$inputFile\" and output events to \"outputFile\".\n");
 	}
 
 	return($inputFile, $outputFile);
 }
 
-sub fileOpener{
+sub FileOpener {
 	# attempt to open via inputFile or die
-open my $openFile, $inputFile or do{
-	print "Error opening file \"$inputFile\": $!. Please enter a valid file.\n";
+	open my $openFile, $inputFile or do{
+	PrintToConsole("Error opening file \"$inputFile\": $!. Please enter a valid file.\n");
 	exit;
 	};
 
 	return $openFile;
+}
+
+sub PrintToConsole {
+	print shift;
 }
