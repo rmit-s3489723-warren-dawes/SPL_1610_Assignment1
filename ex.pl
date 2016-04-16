@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
-use EventExtractor qw(DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser);
+use EventExtractor qw(DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser PrintOutput);
 
 =pod
 
@@ -60,12 +60,14 @@ while (<$openFile>)
 
 close $openFile;
 
+
 EmailPrinter(\@emails);
 
 my @events;
 my $eventKey = 0;
 
 EmailContentParser(\@emails, \@events, \$eventKey);
+PrintOutput(\@events, $outputFile);
 
 sub CommandArgsHandler {
 		
@@ -81,7 +83,7 @@ sub CommandArgsHandler {
 	if ($#ARGV == 0)
 	{
 		$inputFile = $ARGV[0];
-		
+		 
 		if ($inputFile !~/json/)
 		{
 			PrintToConsole("Invalid file, please choose a .json type file to read from.\n");

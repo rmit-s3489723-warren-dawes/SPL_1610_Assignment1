@@ -3,7 +3,7 @@ package EventExtractor;
 
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw(DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser);
+@EXPORT_OK = qw(DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser PrintOutput);
 
 use strict;
 use warnings;
@@ -105,10 +105,10 @@ my @timePattern =
 
 my @datePattern = 
 (
-	'((?:(?:\d{1,4}(?:th|nd|rd)?)|$})(?:[\s.-]\s*))((?:(?:\$|\d(?:th)+)[,\s-]\s?))((?:\d{2,4}))([ :]?(?:\d{2}(?:[ap]m)?|:|[ap]m)?(?:[ -]*)(?:\d{1,2})?(?::\d{2})?(?:[ap]m)?)',	#regex does some shit aka day (1 or 2 digit) + month + year (2 or 4 digit) = 20 April 2006
+	'(((?:(?:\d{1,4}(?:th|nd|rd)?)|$)(?:[\s.-]\s*))((?:(?:$|\d(?:th)+)[,\s-]\s?))((?:\d{2,4}))([ :]?(?:\d{1,2}(?:[ap]m)?|:|[ap]m)?(?:[ -]*)(?:\d{1,2})?(?::\d{2})?(?:[ap]m)?(?: - )?(?:\d{1,2})?(?::)?(?:\d{1,2})(?:[ap]m)?)?)',
 );
 
-#[month/date]or[date/month] = 19 April or April 19 or 19th April or April 19th or 19 4 or 4 19 or 4-19 or 19-4 etc
+#[month/date]or[date/month] = 19 April or April 19 or 19th April or April 19th or 19 4 or 4 19 or 4-19 or 19-4 
 #[time with am/pm or colon] = 4pm or 4:30pm or 14:00 -> \d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2})(?:[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2}))?
 #[year] = 98 or 1998
 
@@ -798,6 +798,73 @@ sub EventPrinter {
 		
 	}
 }
+sub PrintOutput {
+	my $events = shift;
+	
+	open my $file,">$_[0]" or die "Could not print to the output file.\n";
+	
+	print $file "[\n";
+	
+	#goes to each event
+	for (my $i = 0; $i < (scalar @$events); $i++) 
+	{
+		
+		my $event = $$events[$i];
+		if ($event) 
+		{
+			my $startSection = $event->{'start'};
+			print $file "  {\n    \"start\" : {\n      ";
+			
+			my $count = 0;
+			while ((my $key, my $value) = each $startSection)
+			{
+				
+				if ($count==0)
+				{
+					print $file "\"$key\":  \"$$startSection{$key}\",\n      ";
+					
+				}
+				else
+				{
+					print $file "\"$key\":  \"$$startSection{$key}\"\n    },\n";
+				}
+			
+			$count = 1;	
+			}
+			
+			print $file "    \"end\" : {\n      ";
+			my $endSection = $event->{'end'};
+
+			$count = 0;
+			while ((my $key, my $value) = each $startSection)
+			{
+				
+				if ($count==0)
+				{
+					print $file "\"$key\":  \"$$endSection{$key}\",\n      ";
+					
+				}
+				else
+				{
+					print $file "\"$key\":  \"$$endSection{$key}\"\n    }\n";
+				}
+			
+			$count = 1;	
+			}
+		
+				
+		}
+		print $file "  },\n";
+	
+	}
+	
+	print $file "]";
+
+	close $file;
+	
+	
+}
+
 
 =pod
 
