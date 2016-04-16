@@ -104,11 +104,11 @@ my @timePattern =
 );
 
 my @datePattern = 
-{
-	'\d{1,2} $ \d{2,4}',	#regex does some shit aka day (1 or 2 digit) + month + year (2 or 4 digit) = 20 April 2006
-}
+(
+	'((?:(?:\d{1,4}(?:th|nd|rd)?)|$})(?:[\s.-]\s*))((?:(?:\$|\d(?:th)+)[,\s-]\s?))((?:\d{2,4}))([ :]?(?:\d{2}(?:[ap]m)?|:|[ap]m)?(?:[ -]*)(?:\d{1,2})?(?::\d{2})?(?:[ap]m)?)',	#regex does some shit aka day (1 or 2 digit) + month + year (2 or 4 digit) = 20 April 2006
+);
 
-#[month/date]or[date/month] = 19 April or April 19 or 19th April or April 19th
+#[month/date]or[date/month] = 19 April or April 19 or 19th April or April 19th or 19 4 or 4 19 or 4-19 or 19-4 etc
 #[time with am/pm or colon] = 4pm or 4:30pm or 14:00 -> \d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2})(?:[-\s~]{1,3}?\d{1,2}(?:\:\d{2}\s?[pa]m|\s?[pa]m|\:\d{2}))?
 #[year] = 98 or 1998
 
