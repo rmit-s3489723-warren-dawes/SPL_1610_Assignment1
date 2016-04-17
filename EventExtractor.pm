@@ -446,15 +446,28 @@ sub EventDateProcess{
 				DebugPrint("->$parsePattern<-\n");
 				
 				#convert to a friendly format based on input
-				my $parsedDate = Time::Piece->strptime($eventTrigger, $parsePattern);
-				
-				DebugPrint("->$parsedDate<-\n");
+				#allow errors
+				my $parsedDate;
+				eval { $parsedDate = Time::Piece->strptime($eventTrigger, $parsePattern); };
+				if($@) {
+					#strip newline
+					chomp $@;
+					
+					# print error
+					ReportPrint("-------------------\n");
+					ReportPrint("->ERROR:$@<-\n");
+					ReportPrint("->PATTERN:$parsePattern<-\n");
+					ReportPrint("-------------------\n");
+				}
 				
 				#set sentdate to start of day
 				#so that we can set the start/end of the event accordingly
 				$eventStart = $parsedDate;
 				
-				EventTimeParse($dateTime, \$eventStart, \$eventDuration);
+				if ($eventStart)
+				{
+					EventTimeParse($dateTime, \$eventStart, \$eventDuration, $datediff{$$timeZoneField});
+				}				
 			}
 			else
 			{				
@@ -583,37 +596,52 @@ sub EventDateProcess{
 				DebugPrint("->$parsePattern<-\n");
 				
 				#convert to a friendly format based on input
-				my $parsedDate = Time::Piece->strptime($eventTrigger, $parsePattern);
-				
-				DebugPrint("->$parsedDate<-\n");
+				#allow errors
+				my $parsedDate;
+				eval { $parsedDate = Time::Piece->strptime($eventTrigger, $parsePattern); };
+				if($@) {
+					#strip newline
+					chomp $@;
+					
+					# print error
+					ReportPrint("-------------------\n");
+					ReportPrint("->ERROR:$@<-\n");
+					ReportPrint("->PATTERN:$parsePattern<-\n");
+					ReportPrint("-------------------\n");
+				}
 				
 				#set sentdate to start of day
 				#so that we can set the start/end of the event accordingly
 				$eventStart = $parsedDate;
 			}
 		
-			#check eventtype
-			if ($eventType eq "datetime")			
+			if ($eventStart)
 			{
-				my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-				
-				EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
-				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
-				EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
-				EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
-				$$eventKey++;
-			}
-			else
-			{
-				my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
-				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
-				
-				EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
-				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
-				EventAppend($events, $$eventKey, "end", "date", $eventEndFormat);
-				EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
-				$$eventKey++;
+				#check eventtype
+				if ($eventType eq "datetime")			
+				{
+					my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+					my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+					
+					ReportPrint("->OFFSET:" . $eventStart->tzoffset . "<-\n");
+					
+					EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
+					EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+					EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
+					EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+					$$eventKey++;
+				}
+				else
+				{
+					my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
+					my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+					
+					EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
+					EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+					EventAppend($events, $$eventKey, "end", "date", $eventEndFormat);
+					EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+					$$eventKey++;
+				}
 			}
 		}
 	}
@@ -702,7 +730,7 @@ sub EventTimeProcess {
 			#default duration for time = 1 hour (3600 seconds)
 			$eventDuration = 3600;
 			
-			EventTimeParse($eventTrigger, \$eventStart, \$eventDuration);
+			EventTimeParse($eventTrigger, \$eventStart, \$eventDuration, $datediff{$$timeZoneField});
 		}
 		else
 		{
@@ -905,7 +933,7 @@ sub EventDayTimeProcess {
 				#set as datetime (as time/duration specified)
 				$eventType = "datetime";
 					
-				EventTimeParse($eventTrigger, \$eventStart, \$eventDuration);
+				EventTimeParse($eventTrigger, \$eventStart, \$eventDuration, $datediff{$$timeZoneField});
 			}			
 		
 			#check eventtype
@@ -942,6 +970,15 @@ sub EventTimeParse {
 	my $eventTrigger = shift;
 	my $eventStart = shift;
 	my $eventDuration = shift;
+	my $dateDiff = shift;
+	
+	ReportPrint("->DATEDIFF:$dateDiff<-\n");
+	
+	ReportPrint("->UTC:$$eventStart<-\n");
+	
+	$$eventStart -= $dateDiff;
+	
+	ReportPrint("->LOCAL:$$eventStart<-\n");
 	
 	if ($eventTrigger =~ m/(?:\d{1,2}|\d{1,2}:\d{2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}|\d{1,2}:\d{2})(?:\s[pa]m|[pa]m))?/i)	#check for 12 hour time with the am/pm (spacing allowed) with/without range
 	{
@@ -1130,6 +1167,67 @@ sub EventTimeParse {
 					{
 						$endHour += 12;
 					}
+				}
+				
+				#if the hour == 12 (aka 0 in real time)
+				if ($startHour == 12)
+				{
+					$startHour -= 12;
+				}
+				
+				#add hours and minutes
+				$$eventStart += ($startHour * (60 * 60));
+				$$eventStart += ($startMinute * 60);
+				
+				#set duration
+				$$eventDuration = (($endHour - $startHour) * (60 * 60));
+
+				#if endminute < startminute
+				#we minus from duration rather than add
+				if ($endMinute < $startMinute)
+				{
+					$$eventDuration -= ((abs($endMinute - $startMinute))  * 60);
+				}
+				else
+				{
+					$$eventDuration += ((abs($endMinute - $startMinute))  * 60);
+				}
+			}
+			elsif ($seekStart =~ m/pm$/ix && $seekEnd =~ m/am$/ix)
+			{
+				#strip am
+				$seekStart =~ s/pm//ig;
+				$seekEnd =~ s/am//ig;
+				
+				(my $startHour, my $startMinute);
+				(my $endHour, my $endMinute);
+				
+				#if time is precise (eg 4:30)
+				if ($seekStart =~ m/\d{1,2}:\d{2}/ix)
+				{
+					($startHour, $startMinute) = split(/:/, $seekStart);
+					if ($startHour != 12)
+					{
+						$startHour += 12;
+					}
+				}
+				else
+				{
+					($startHour, $startMinute) = ($seekStart, 0);
+					if ($startHour != 12)
+					{
+						$startHour += 12;
+					}
+				}
+				
+				#if time is precise (eg 4:30)
+				if ($seekEnd =~ m/\d{1,2}:\d{2}/ix)
+				{
+					($endHour, $endMinute) = split(/:/, $seekEnd);
+				}
+				else
+				{
+					($endHour, $endMinute) = ($seekEnd, 0);
 				}
 				
 				#if the hour == 12 (aka 0 in real time)
