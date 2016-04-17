@@ -1,9 +1,8 @@
 #!/usr/bin/env perl
 package EventExtractor;
-
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT_OK = qw(DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser PrintOutput);
+@EXPORT_OK = qw(ReportPrint DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser PrintOutput);
 
 use strict;
 use warnings;
@@ -11,16 +10,180 @@ use warnings;
 use LWP::Simple;
 
 use POSIX;
-use Time::Local;
 use Time::Seconds;
 use Time::Piece ':override';
 
 use Date::Parse;
 use Date::Format 'time2str';
 
-use Data::Dumper;
-
+#can be changed to suit year (that is parsed by default)
 my $YEAR = 2016;
+
+=head1 NAME
+	EventExtractor.pm - Process emails and extract events based on dates/timestamps in various formats.
+=head1 SYNOPSIS
+	See the SYNOPSIS section of Extract.pl.
+=head1 BUGS 
+	Although various formats are supported, please report any unknown or corrupted formats to s3489723@student.rmit.edu.au or s3285133@student.rmit.edu.au.
+	
+	Please provide details on the format (including the expected trigger - such as "every Wednesday 2pm - 5pm" or "25-02-2016 - 29-02-2016").
+=head1 ACKNOWLEDGEMENTS
+	We would like to thank RMIT University for offering Scripting Language Programming as a course, the tutors/staff involved with this course and B<Dr Andy Song> for being so cool.
+=head1 COPYRIGHT & LICENCE
+	The contents of this module/script are free to be used where applicable, with sufficient crediting where appropriate.
+	
+	C<Copyright Warren Dawes & Candy Goodison @ 2016>
+	
+	PLEASE DO NOT REDISTRIBUTE!!
+=head1 AVAILABILITY
+	Support for the module/script ends after Semester 1 - 2016.
+=head1 AUTHORS
+	This module/script was constructed over several weeks by the following individuals:
+	
+=over 4
+
+=item B<NAME - STUDENT EMAIL>
+=item Warren Dawes - s3489723@student.rmit.edu.au
+=item Candice Goodison - s3285133@student.rmit.edu.au
+
+=back
+
+=head1 SEE ALSO
+	L<http://www1.rmit.edu.au/courses/014048>, L<https://juerd.nl/site.plp/perlpodtut>
+
+-----------------------------------------------------------------------------------------------------------
+
+=head2 EXPORTED METHODS
+	These are the subs which are exported with module usage:
+=over 8
+
+=item C<KeyValueExtractor($string)>
+
+	Attempts to seek $string for key/value in JSON format ("key":"value" or "key":value).
+	I<Note:value B<MUST> be in number format when not surrounded by double-quotes.>
+
+=item C<EmailStructBuilder(\@emails, \$emailKey, $key, $value)>
+
+	Appends the latest $key and $value to the \@emails array, incrementing \$emailKey accordingly.
+	I<Note:@emails and $emailKey B<MUST> be passed by reference.>
+
+=item C<EmailPrinter(\@emails)>
+
+	Iterates through each email and prints detailed information on each.
+	
+=item C<EmailContentParser(\@emails, \@events, \$eventKey)>
+
+	Iterates through each email to seek for any events (which are stored in \@events array), incrementing \$eventKey accordingly.
+	I<Note:@emails, @events and $eventKey B<MUST> be passed by reference.>
+
+=item C<PrintOutput(\@events, $outputFile)>
+
+	Iterates through each event and print to a file with appropriate formating (JSON).
+	I<Note:@events B<MUST> be passed by reference.>
+	
+=item C<DebugPrint($string)>
+
+	Print $string to console (used to mass-enable or mass-disable).
+	
+=item C<ReportPrint($string)>
+
+	Print $string to console (where $string is important).
+
+=back
+
+-----------------------------------------------------------------------------------------------------------
+
+=head2 INTERNAL METHODS
+	These are the subs which are used within the module:
+=over 8
+
+=item C<EventDateProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, $relativeTerm)>
+
+	Called by EmailContentParser to seek and extract any dates that are within the current \$contentField, when found, the sub will automatically parse and add to the $events array with the $eventKey, incrementing accordingly.
+	The $relativeTerm is unused within this sub (but possible implementation could support "this year" or "next year").
+	This supports seeking with time-ranges as well (such as 18th of April, 2016 4pm - 10pm) in various formats.
+	I<Note:$events is already a reference to the array, as with $eventKey, but \$sentField, \$contentField, \$timeTypeField and \$timeZoneField B<MUST> be passed by reference.>
+
+=item C<EventTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, $relativeTerm)>
+
+	Called by EmailContentParser to seek and extract any times that are within the current \$contentField, when found, the sub will automatically parse and add to the $events array with the $eventKey, incrementing accordingly.
+	The $relativeTerm is used to seek matches that follow key-words (such as today 4pm or tomorrow 4pm), all seeking is done with case insensitivity.
+	This supports seeking with time-ranges as well (such as 4pm - 8pm) in various formats.
+	I<Note:$events is already a reference to the array, as with $eventKey, but \$sentField, \$contentField, \$timeTypeField and \$timeZoneField B<MUST> be passed by reference.>
+
+=item C<EventDayTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, $relativeTerm)>
+
+	Called by EmailContentParser to seek and extract any daytimes that are within the current \$contentField, when found, the sub will automatically parse and add to the $events array with the $eventKey, incrementing accordingly.
+	The $relativeTerm is used to seek matches that follow key-words (such as this Monday, or next Monday), all seeking is done with case insensitivity.
+	This supports seeking with time-ranges as well (such as Monday 4pm - 8pm) in various formats.
+	I<Note:$events is already a reference to the array, as with $eventKey, but \$sentField, \$contentField, \$timeTypeField and \$timeZoneField B<MUST> be passed by reference.>
+
+=item C<EventTimeParse($eventTrigger, \$eventStart, \$eventDuration, $datediff)>
+
+	Called by EventDateProcess, EventTimeProcess or EventDayTimeProcess to process a time (or time-range), setting the \$eventStart and \$eventDuration accordingly.
+	This sub also uses $datediff to sync the default UTC time to the timezone required.
+	$eventTrigger should be the time (such as "4pm" or "4pm - 8pm") - supporting various formats (such as 16:00 - 20:00).
+	I<Note:$eventTrigger needs to be as clean as possible, such that there is no other characters but those specified in normal time formats.>
+
+=item C<EventAppend($events, $eventKey, $section, $key, $value)>
+
+	Called by EventDateProcess, EventTimeProcess and EventDayTimeProcess to append to the events array.
+	This essentially stacks a new event ontop of the others.
+	I<Note:$events is already a reference to the array, but the other variables can be passed by value.>
+
+=back
+
+-----------------------------------------------------------------------------------------------------------
+
+=head2 KEY VARIABLES
+	These are the subs which are used within the module:
+=over 8
+
+=item C<%dayofweek>
+
+	A hash table containing string representations of the days to seek matched against the appropriate day-of-the-week.
+	Alternatives can be added here (such as other abbreviations).
+	
+=item C<%monthofyear>
+
+	A hash table containing string representations of the months of the year to seek matched against the appropriate month number (1-index based).
+	Alternatives can be added here (such as other abbreviations).
+	
+=item C<%relativeSeek>
+
+	A hash table containing string representations of the key-words to seek matched against the type of key-word (such that the processor knows what to seek).
+	Alternatives can be added here (such as "fortnight" => "daytime" - which would seek 2 weeks ahead of time, for any day + time events (or just day)).
+	
+=item C<@daytimePattern>
+
+	An array containing broken down patterns to seek for any daytime events.
+	These are appended together with the alternation character ('|') to create a single regular expression.
+	An example of a daytime is "Monday" or "Monday 4pm", where by a time and/or time-range can be provided.
+	I<Note:For any additions, please revise previous expressions and capture unique groups.>
+
+=item C<@timePattern>
+
+	An array containing broken down patterns to seek for any time events.
+	These are appended together with the alternation character ('|') to create a single regular expression.
+	An example of a time is "4pm" or "4pm - 8pm", where by a time and/or time-range can be provided.
+	I<Note:For any additions, please revise previous expressions and capture unique groups.>
+
+=item C<@datePattern>
+
+	An array containing broken down patterns to seek for any date events.
+	These are appended together with the alternation character ('|') to create a single regular expression.
+	An example of a time is "2015 01 12" or "18th April, 2016" or "18th April, 2016 4pm", where by a time and/or time-range can be appended to these dates.
+	I<Note:For any additions, please revise previous expressions and capture unique groups.>
+	
+=item C<%datediff>
+
+	A hash table containing string representations of the timezones detected from emails matched against the appropriate datediff (seconds in difference from the UTC vs timezone).
+	An example entry is "Australia/Melbourne" => 36000 - which would represent 36000 seconds ahead of UTC.
+	I<Note:These are gathered from a web-request after processing all emails.>
+
+=back
+
+=cut
 
 #reference for day of the week
 #http://www.aresearchguide.com/monthdayabb.html
@@ -123,14 +286,14 @@ my @datePattern =
 	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)', 			#match April-(4|14)(th)-(2006|06) with time/duration (allowing 12 - 2pm format)
 	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',			#match (4|14)(th)-April-(2006|06) with time/duration (allowing 12 - 2pm format)
 	
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',				#match April-(4|14)(th) (assumes that its this year) with time/duration
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',				#match (4|14)(th)-April (assumes that its this year) with time/duration
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',					#match April-(4|14)(th) (assumes that its this year) with time/duration
+	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',					#match (4|14)(th)-April (assumes that its this year) with time/duration
 
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})',	#match April-(4|14)(th)-(2006|06)
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})',	#match (4|14)(th)-April-(2006|06)
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})',		#match April-(4|14)(th)-(2006|06)
+	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})',		#match (4|14)(th)-April-(2006|06)
 
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',						#match April-(4|14)(th) (assumes that its this year) with time/duration (allowing 12 - 2pm format)
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',						#match (4|14)(th)-April (assumes that its this year) with time/duration (allowing 12 - 2pm format)
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',							#match April-(4|14)(th) (assumes that its this year) with time/duration (allowing 12 - 2pm format)
+	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',							#match (4|14)(th)-April (assumes that its this year) with time/duration (allowing 12 - 2pm format)
 	
 	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[^-\s~,.]\b',				#match April-(4|14)(th) (assumes that its this year)
 	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$\b[^-\s~,.]\b',				#match (4|14)(th)-April (assumes that its this year)
@@ -140,15 +303,7 @@ my @datePattern =
 );
 
 #hash table for datediff for futuer use (to minus from time to match local)
-my %datediff = ('Australia/Melbourne' => 0);
-
-=pod
-
-=head2 EmailContentParser(\@emails)
-
-\@emails is a reference to the emails array that contains the structure.
-
-=cut
+my %datediff = ('Australia/Melbourne' => 36000);	#match +10 GMT aka +10 hours to UTC
 
 sub EmailContentParser {
 	my $emails = shift;
@@ -1443,39 +1598,6 @@ sub EventPrinter {
 	}
 }
 
-=pod
-
-=head1 B<NAME>
-
-Assignment 1 - Event Extractor
-
-=head2 B<AUTHORS>
-
-=over 4
-
-=item *
-
-Warren Dawes
-
-=item *
-
-Candy Goodison
-
-=back
-
-=head2 B<DESCIPTION>
-
-An email event-extractor to gather dates for events based on contents of emails.
-
-=head2 C<Copyright Warren Dawes & Candy Goodison @ 2016>
-
-=head2 EmailStructBuilder(\@emails, \$emailKey, $key, $value)
-
-\@emails is the reference to the emails array, \$emailKey is the reference to the current emailKey,
-$key is a string of the key from the line, $value is a string of the value from the line.
-
-=cut
-
 sub EmailStructBuilder {
 	my $emails = $_[0];
 	my $emailKey = $_[1];
@@ -1520,14 +1642,6 @@ sub EmailStructBuilder {
 	$$emails[$$emailKey]->{$key} = $value;
 }
 
-=pod
-
-=head2 KeyValueExtractor() return ($key, $value)
-
-$key is a string of the key from the line, $value is a string of the value from the line.
-
-=cut
-
 sub KeyValueExtractor {
 	
 	#assign variable
@@ -1546,14 +1660,6 @@ sub KeyValueExtractor {
 	#group to only defined entries
 	return grep defined, @found;
 }
-
-=pod
-
-=head2 EmailPrinter(\@emails)
-
-\@emails is a reference to the emails array that contains the structure.
-
-=cut
 
 sub EmailPrinter {	
 
