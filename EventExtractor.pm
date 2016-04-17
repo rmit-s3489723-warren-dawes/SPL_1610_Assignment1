@@ -97,9 +97,9 @@ my @daytimePattern =
 	#pattern for day/time with range = eg Monday 4:30pm - 5:30pm or Monday 4pm - 5:30pm or Monday 4:30pm - 5pm or Monday 4pm - 5pm or Monday 16:00 - 17:00
 	#pattern for day/time = eg Monday 4pm or Monday 4:30pm or Monday 16:00
 	#pattern for day = Monday (would set as an all-day event)
-	'\b$\b[-\s~,\.]{1,2}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?',	#match monday( )1pm - 3pm and monday( )1pm - 3:30pm
-	'\b$\b[-\s~,\.]{1,2}\d{1,2}:\d{2}(?:[-\s~]{1,3}\d{1,2}:\d{2})?',								#match monday( )13:30 - 15:30
-	'\b$\b[-\s~,\.]{1,2}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?',			#match monday( )1 - 3pm and monday( )1 - 3:30pm
+	'\b$[-\s~,\.]{1,2}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?',	#match monday( )1pm - 3pm and monday( )1pm - 3:30pm
+	'\b$[-\s~,\.]{1,2}\d{1,2}:\d{2}(?:[-\s~]{1,3}\d{1,2}:\d{2})?',									#match monday( )13:30 - 15:30
+	'\b$[-\s~,\.]{1,2}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?',				#match monday( )1 - 3pm and monday( )1 - 3:30pm
 );
 
 #patterns are joined together with an | operator (or clause)
@@ -267,7 +267,8 @@ sub EventDateProcess{
 	#convert to a friendly format (inclusive of day)
 	my $sentDate = Time::Piece->strptime($$sentField, "%Y%m%d%H%M%S");
 	
-	my $eventDuration = ONE_DAY;		#24 hours of seconds
+	my $eventType = "date";		#default as a date (datetime if time specified)
+	my $eventDuration = ONE_DAY;	#24 hours of seconds
 	my $eventStart = $sentDate;
 
 	#attempt to discover the month (either short-hand or full-word)
@@ -309,6 +310,9 @@ sub EventDateProcess{
 			#if a datetime was found
 			if ($dateTime)
 			{
+				#set event as datetime
+				$eventType = "datetime";
+				
 				#strip it from trigger
 				$eventTrigger =~ s/$dateTime//g;
 				
@@ -588,14 +592,29 @@ sub EventDateProcess{
 				$eventStart = $parsedDate;
 			}
 		
-			my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-			
-			EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
-			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
-			EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
-			EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
-			$$eventKey++;
+			#check eventtype
+			if ($eventType eq "datetime")			
+			{
+				my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+				
+				EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
+				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+				EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
+				EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+				$$eventKey++;
+			}
+			else
+			{
+				my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
+				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+				
+				EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
+				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+				EventAppend($events, $$eventKey, "end", "date", $eventEndFormat);
+				EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+				$$eventKey++;
+			}
 		}
 	}
 	
@@ -622,6 +641,9 @@ sub EventTimeProcess {
 	
 	#convert to a friendly format (inclusive of day)
 	my $sentDate = Time::Piece->strptime($$sentField, "%Y%m%d%H%M%S");
+	
+	#default as a date (datetime if time specified)
+	my $eventType = "date";
 	
 	#default duration for day = 1 day (86400 seconds)
 	my $eventDuration = ONE_DAY;
@@ -661,6 +683,9 @@ sub EventTimeProcess {
 		#if the $eventTrigger is valid (should be a time only)
 		if ($eventTrigger =~ m/(?:\d{1,2}|\d{1,2}:\d{2})(?:\s[pa]m|[pa]m)?(?:[-\s~]{1,3}(?:\d{1,2}|\d{1,2}:\d{2})?(?:\s[pa]m|[pa]m))?/i)
 		{
+			#set as datetime (as time/duration specified)
+			$eventType = "datetime";
+			
 			#set sentdate to start of day
 			#so that we can set the start/end of the event accordingly
 			$eventStart = $sentDate;
@@ -709,14 +734,86 @@ sub EventTimeProcess {
 			}
 		}
 	
-		my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-		my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+		#check eventtype
+		if ($eventType eq "datetime")			
+		{
+			my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			
+			EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
+			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+			EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
+			EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+			$$eventKey++;
+		}
+		else
+		{
+			my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
+			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+			
+			EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
+			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+			EventAppend($events, $$eventKey, "end", "date", $eventEndFormat);
+			EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+			$$eventKey++;
+		}
+	}
+	
+	#check if any remainders
+	if ($$contentField =~ m/$relativeTerm/i)
+	{
+		ReportPrint("->REMAINDER:$relativeTerm<-\n");
 		
-		EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
-		EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
-		EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
-		EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
-		$$eventKey++;
+		#if the $relativeTerm is today, then we set rest of the day as possible remainder
+		if ($relativeTerm eq "today")
+		{
+			#set sentdate but maintain current time (as event will be remainder
+			#so that we can set the start/end of the event accordingly
+			$eventStart = $sentDate;
+
+			#set duration to be remainder of the day
+			#note: should match 11:59pm that day
+			$eventDuration -= ($eventStart->hour * (60 * 60));
+			$eventDuration -= ($eventStart->minute * 60);
+			$eventDuration -= ($eventStart->second);
+		}
+		
+		#set event start			
+		if ($relativeTerm eq "tomorrow")
+		{
+			#set sentdate to start of day
+			#so that we can set the start/end of the event accordingly
+			#then add 1 day as event is tomorrow
+			$eventStart = $sentDate;
+			$eventStart -= ($eventStart->hour * (60 * 60));
+			$eventStart -= ($eventStart->minute * 60);
+			$eventStart -= $eventStart->second;
+			$eventStart += ONE_DAY * 1;
+		}
+		
+		#check eventtype
+		if ($eventType eq "datetime")			
+		{
+			my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			
+			EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
+			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+			EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
+			EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+			$$eventKey++;
+		}
+		else
+		{
+			my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
+			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+			
+			EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
+			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+			EventAppend($events, $$eventKey, "end", "date", $eventEndFormat);
+			EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+			$$eventKey++;
+		}
 	}
 	
 	ReportPrint("-------------------\n");
@@ -743,27 +840,24 @@ sub EventDayTimeProcess {
 	#convert to a friendly format (inclusive of day)
 	my $sentDate = Time::Piece->strptime($$sentField, "%Y%m%d%H%M%S");
 	
+	#default as a date (datetime if time specified)
+	my $eventType = "date";
+	
 	#default duration = 1 hour (3600 seconds)
 	my $eventDuration = 3600;
 	my $eventStart;
 
 	#attempt to discover the day (either short-hand or full-word)
 	foreach my $day (keys %dayofweek)
-	{
+	{		
 		#store copy and replace pattern
 		my $usePattern = join('|', @daytimePattern);
 		$usePattern =~ s/\$/$day/g;
 		
-		if ($relativeTerm eq "")
-		{
-			if ($$eventKey == 5)
-			{
-				#ReportPrint("$usePattern\n");
-			}
-		}
-		
 		#each result found with pattern					
 		my @daytimeSeek = $$contentField =~ m/$usePattern/ig;
+		
+		#ReportPrint("->PATTERN:$usePattern<-\n");
 		
 		foreach my $eventTrigger (@daytimeSeek)
 		{
@@ -807,18 +901,36 @@ sub EventDayTimeProcess {
 		
 			#if the $eventTrigger is valid (should be a time only)
 			if ($eventTrigger =~ m/(?:\d{1,2}|\d{1,2}:\d{2})(?:\s[pa]m|[pa]m)?(?:[-\s~]{1,3}(?:\d{1,2}|\d{1,2}:\d{2})?(?:\s[pa]m|[pa]m))?/i)
-			{
+			{			
+				#set as datetime (as time/duration specified)
+				$eventType = "datetime";
+					
 				EventTimeParse($eventTrigger, \$eventStart, \$eventDuration);
 			}			
 		
-			my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-			
-			EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
-			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
-			EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
-			EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
-			$$eventKey++;
+			#check eventtype
+			if ($eventType eq "datetime")			
+			{
+				my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+				
+				EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
+				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+				EventAppend($events, $$eventKey, "end", "datetime", $eventEndFormat);
+				EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+				$$eventKey++;
+			}
+			else
+			{
+				my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
+				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+				
+				EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
+				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
+				EventAppend($events, $$eventKey, "end", "date", $eventEndFormat);
+				EventAppend($events, $$eventKey, "end", "timezone", $$timeZoneField);
+				$$eventKey++;
+			}
 		}
 	}
 	
