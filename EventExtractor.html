@@ -1,0 +1,234 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>EventExtractor.pm</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:" />
+</head>
+
+<body style="background-color: white">
+
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+
+<ul>
+
+	<ul>
+
+		<li><a href="#name">NAME</a></li>
+		<li><a href="#synopsis">SYNOPSIS</a></li>
+		<li><a href="#bugs">BUGS</a></li>
+		<li><a href="#acknowledgements">ACKNOWLEDGEMENTS</a></li>
+		<li><a href="#copyright___licence">COPYRIGHT &amp; LICENCE</a></li>
+		<li><a href="#availability">AVAILABILITY</a></li>
+		<li><a href="#authors">AUTHORS</a></li>
+		<li><a href="#see_also">SEE ALSO</a></li>
+		<li><a href="#exported_methods">EXPORTED METHODS</a></li>
+		<li><a href="#internal_methods">INTERNAL METHODS</a></li>
+		<li><a href="#key_variables">KEY VARIABLES</a></li>
+	</ul>
+
+</ul>
+
+<hr name="index" />
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<h2><a name="name">NAME</a></h2>
+<p>EventExtractor.pm - Process emails and extract events based on dates/timestamps in various formats.</p>
+<p>
+</p>
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<p>See the SYNOPSIS section of Extract.pl.</p>
+<p>
+</p>
+<h2><a name="bugs">BUGS</a></h2>
+<p>Although various formats are supported, please report any unknown or corrupted formats to <a href="mailto:s3489723@student.rmit.edu.au">s3489723@student.rmit.edu.au</a> or <a href="mailto:s3285133@student.rmit.edu.au.">s3285133@student.rmit.edu.au.</a></p>
+<p>Please provide details on the format (including the expected trigger - such as &quot;every Wednesday 2pm - 5pm&quot; or &quot;25-02-2016 - 29-02-2016&quot;).</p>
+<p>
+</p>
+<h2><a name="acknowledgements">ACKNOWLEDGEMENTS</a></h2>
+<p>We would like to thank RMIT University for offering Scripting Language Programming as a course, the tutors/staff involved with this course and <strong>Dr Andy Song</strong> for being so cool.</p>
+<p>
+</p>
+<h2><a name="copyright___licence">COPYRIGHT &amp; LICENCE</a></h2>
+<p>The contents of this module/script are free to be used where applicable, with sufficient crediting where appropriate.</p>
+<p>Copyright Warren Dawes &amp; Candy Goodison @ 2016</p>
+<p>PLEASE DO NOT REDISTRIBUTE!!</p>
+<p>
+</p>
+<h2><a name="availability">AVAILABILITY</a></h2>
+<p>Support for the module/script ends after Semester 1 - 2016.</p>
+<p>
+</p>
+<h2><a name="authors">AUTHORS</a></h2>
+<p>This module/script was constructed over several weeks by the following individuals:</p>
+<ul>
+<li>
+<p>Warren Dawes - <a href="mailto:s3489723@student.rmit.edu.au">s3489723@student.rmit.edu.au</a></p>
+</li>
+<li>
+<p>Candice Goodison - <a href="mailto:s3285133@student.rmit.edu.au">s3285133@student.rmit.edu.au</a></p>
+</li>
+</ul>
+<p>
+</p>
+<h2><a name="see_also">SEE ALSO</a></h2>
+<p><a href="http://www1.rmit.edu.au/courses/014048">http://www1.rmit.edu.au/courses/014048</a>, <a href="https://juerd.nl/site.plp/perlpodtut">https://juerd.nl/site.plp/perlpodtut</a></p>
+<p>-----------------------------------------------------------------------------------------------------------</p>
+<p>
+</p>
+<h2><a name="exported_methods">EXPORTED METHODS</a></h2>
+<p>These are the subs which are exported with module usage:</p>
+<dl>
+<dt><strong><a name="keyvalueextractor" class="item"><code>KeyValueExtractor($string)</code></a></strong></dt>
+
+<dd>
+<p>Attempts to seek $string for key/value in JSON format (&quot;key&quot;:&quot;value&quot; or &quot;key&quot;:value).
+<em>Note:value <strong>MUST</strong> be in number format when not surrounded by double-quotes.</em></p>
+</dd>
+<dt><strong><a name="emailstructbuilder" class="item"><code>EmailStructBuilder(\@emails, \$emailKey, $key, $value)</code></a></strong></dt>
+
+<dd>
+<p>Appends the latest $key and $value to the \@emails array, incrementing \$emailKey accordingly.
+<em>Note:@emails and $emailKey <strong>MUST</strong> be passed by reference.</em></p>
+</dd>
+<dt><strong><a name="emailprinter" class="item"><code>EmailPrinter(\@emails)</code></a></strong></dt>
+
+<dd>
+<p>Iterates through each email and prints detailed information on each.</p>
+</dd>
+<dt><strong><a name="emailcontentparser" class="item"><code>EmailContentParser(\@emails, \@events, \$eventKey)</code></a></strong></dt>
+
+<dd>
+<p>Iterates through each email to seek for any events (which are stored in \@events array), incrementing \$eventKey accordingly.
+<em>Note:@emails, @events and $eventKey <strong>MUST</strong> be passed by reference.</em></p>
+</dd>
+<dt><strong><a name="printoutput" class="item"><code>PrintOutput(\@events, $outputFile)</code></a></strong></dt>
+
+<dd>
+<p>Iterates through each event and print to a file with appropriate formating (JSON).
+<em>Note:@events <strong>MUST</strong> be passed by reference.</em></p>
+</dd>
+<dt><strong><a name="debugprint" class="item"><code>DebugPrint($string)</code></a></strong></dt>
+
+<dd>
+<p>Print $string to console (used to mass-enable or mass-disable).</p>
+</dd>
+<dt><strong><a name="reportprint" class="item"><code>ReportPrint($string)</code></a></strong></dt>
+
+<dd>
+<p>Print $string to console (where $string is important).</p>
+</dd>
+</dl>
+<p>-----------------------------------------------------------------------------------------------------------</p>
+<p>
+</p>
+<h2><a name="internal_methods">INTERNAL METHODS</a></h2>
+<p>These are the subs which are used within the module:</p>
+<dl>
+<dt><strong><a name="eventdateprocess" class="item"><code>EventDateProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, $relativeTerm)</code></a></strong></dt>
+
+<dd>
+<p>Called by EmailContentParser to seek and extract any dates that are within the current \$contentField, when found, the sub will automatically parse and add to the $events array with the $eventKey, incrementing accordingly.
+The $relativeTerm is unused within this sub (but possible implementation could support &quot;this year&quot; or &quot;next year&quot;).
+This supports seeking with time-ranges as well (such as 18th of April, 2016 4pm - 10pm) in various formats.
+<em>Note:$events is already a reference to the array, as with $eventKey, but \$sentField, \$contentField, \$timeTypeField and \$timeZoneField <strong>MUST</strong> be passed by reference.</em></p>
+</dd>
+<dt><strong><a name="eventtimeprocess" class="item"><code>EventTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, $relativeTerm)</code></a></strong></dt>
+
+<dd>
+<p>Called by EmailContentParser to seek and extract any times that are within the current \$contentField, when found, the sub will automatically parse and add to the $events array with the $eventKey, incrementing accordingly.
+The $relativeTerm is used to seek matches that follow key-words (such as today 4pm or tomorrow 4pm), all seeking is done with case insensitivity.
+This supports seeking with time-ranges as well (such as 4pm - 8pm) in various formats.
+<em>Note:$events is already a reference to the array, as with $eventKey, but \$sentField, \$contentField, \$timeTypeField and \$timeZoneField <strong>MUST</strong> be passed by reference.</em></p>
+</dd>
+<dt><strong><a name="eventdaytimeprocess" class="item"><code>EventDayTimeProcess($events, $eventKey, \$sentField, \$contentField, \$timeTypeField, \$timeZoneField, $relativeTerm)</code></a></strong></dt>
+
+<dd>
+<p>Called by EmailContentParser to seek and extract any daytimes that are within the current \$contentField, when found, the sub will automatically parse and add to the $events array with the $eventKey, incrementing accordingly.
+The $relativeTerm is used to seek matches that follow key-words (such as this Monday, or next Monday), all seeking is done with case insensitivity.
+This supports seeking with time-ranges as well (such as Monday 4pm - 8pm) in various formats.
+<em>Note:$events is already a reference to the array, as with $eventKey, but \$sentField, \$contentField, \$timeTypeField and \$timeZoneField <strong>MUST</strong> be passed by reference.</em></p>
+</dd>
+<dt><strong><a name="eventtimeparse" class="item"><code>EventTimeParse($eventTrigger, \$eventStart, \$eventDuration, $datediff)</code></a></strong></dt>
+
+<dd>
+<p>Called by EventDateProcess, EventTimeProcess or EventDayTimeProcess to process a time (or time-range), setting the \$eventStart and \$eventDuration accordingly.
+This sub also uses $datediff to sync the default UTC time to the timezone required.
+$eventTrigger should be the time (such as &quot;4pm&quot; or &quot;4pm - 8pm&quot;) - supporting various formats (such as 16:00 - 20:00).
+<em>Note:$eventTrigger needs to be as clean as possible, such that there is no other characters but those specified in normal time formats.</em></p>
+</dd>
+<dt><strong><a name="eventappend" class="item"><code>EventAppend($events, $eventKey, $section, $key, $value)</code></a></strong></dt>
+
+<dd>
+<p>Called by EventDateProcess, EventTimeProcess and EventDayTimeProcess to append to the events array.
+This essentially stacks a new event ontop of the others.
+<em>Note:$events is already a reference to the array, but the other variables can be passed by value.</em></p>
+</dd>
+</dl>
+<p>-----------------------------------------------------------------------------------------------------------</p>
+<p>
+</p>
+<h2><a name="key_variables">KEY VARIABLES</a></h2>
+<p>These are the subs which are used within the module:</p>
+<dl>
+<dt><strong><a name="_dayofweek" class="item"><code>%dayofweek</code></a></strong></dt>
+
+<dd>
+<p>A hash table containing string representations of the days to seek matched against the appropriate day-of-the-week.
+Alternatives can be added here (such as other abbreviations).</p>
+</dd>
+<dt><strong><a name="_monthofyear" class="item"><code>%monthofyear</code></a></strong></dt>
+
+<dd>
+<p>A hash table containing string representations of the months of the year to seek matched against the appropriate month number (1-index based).
+Alternatives can be added here (such as other abbreviations).</p>
+</dd>
+<dt><strong><a name="_relativeseek" class="item"><code>%relativeSeek</code></a></strong></dt>
+
+<dd>
+<p>A hash table containing string representations of the key-words to seek matched against the type of key-word (such that the processor knows what to seek).
+Alternatives can be added here (such as &quot;fortnight&quot; =&gt; &quot;daytime&quot; - which would seek 2 weeks ahead of time, for any day + time events (or just day)).</p>
+</dd>
+<dt><strong><a name="_daytimepattern" class="item"><code>@daytimePattern</code></a></strong></dt>
+
+<dd>
+<p>An array containing broken down patterns to seek for any daytime events.
+These are appended together with the alternation character ('|') to create a single regular expression.
+An example of a daytime is &quot;Monday&quot; or &quot;Monday 4pm&quot;, where by a time and/or time-range can be provided.
+<em>Note:For any additions, please revise previous expressions and capture unique groups.</em></p>
+</dd>
+<dt><strong><a name="_timepattern" class="item"><code>@timePattern</code></a></strong></dt>
+
+<dd>
+<p>An array containing broken down patterns to seek for any time events.
+These are appended together with the alternation character ('|') to create a single regular expression.
+An example of a time is &quot;4pm&quot; or &quot;4pm - 8pm&quot;, where by a time and/or time-range can be provided.
+<em>Note:For any additions, please revise previous expressions and capture unique groups.</em></p>
+</dd>
+<dt><strong><a name="_datepattern" class="item"><code>@datePattern</code></a></strong></dt>
+
+<dd>
+<p>An array containing broken down patterns to seek for any date events.
+These are appended together with the alternation character ('|') to create a single regular expression.
+An example of a time is &quot;2015 01 12&quot; or &quot;18th April, 2016&quot; or &quot;18th April, 2016 4pm&quot;, where by a time and/or time-range can be appended to these dates.
+<em>Note:For any additions, please revise previous expressions and capture unique groups.</em></p>
+</dd>
+<dt><strong><a name="_datediff" class="item"><code>%datediff</code></a></strong></dt>
+
+<dd>
+<p>A hash table containing string representations of the timezones detected from emails matched against the appropriate datediff (seconds in difference from the UTC vs timezone).
+An example entry is &quot;Australia/Melbourne&quot; =&gt; 36000 - which would represent 36000 seconds ahead of UTC.
+<em>Note:These are gathered from a web-request after processing all emails.</em></p>
+</dd>
+</dl>
+
+</body>
+
+</html>

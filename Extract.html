@@ -1,0 +1,112 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Extract.pl</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:" />
+</head>
+
+<body style="background-color: white">
+
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+
+<ul>
+
+	<ul>
+
+		<li><a href="#name">NAME</a></li>
+		<li><a href="#synopsis">SYNOPSIS</a></li>
+		<li><a href="#bugs">BUGS</a></li>
+		<li><a href="#acknowledgements">ACKNOWLEDGEMENTS</a></li>
+		<li><a href="#copyright___licence">COPYRIGHT &amp; LICENCE</a></li>
+		<li><a href="#availability">AVAILABILITY</a></li>
+		<li><a href="#authors">AUTHORS</a></li>
+		<li><a href="#see_also">SEE ALSO</a></li>
+		<li><a href="#methods">METHODS</a></li>
+	</ul>
+
+</ul>
+
+<hr name="index" />
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<h2><a name="name">NAME</a></h2>
+<p>Extract.pl - Sample script showing implementation of the EventExtractor module.</p>
+<p>
+</p>
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+<p>This script supports 3 types of usage:
+perl Extract.pl
+perl Extract.pl input.json
+perl Extract.pl inout.json output.json</p>
+<p><em>Note:Input and output can be any file extension, but just represet JSON format.</em></p>
+<p>
+</p>
+<h2><a name="bugs">BUGS</a></h2>
+<p>Please report any bugs detected to <a href="mailto:s3489723@student.rmit.edu.au">s3489723@student.rmit.edu.au</a> or <a href="mailto:s3285133@student.rmit.edu.au.">s3285133@student.rmit.edu.au.</a></p>
+<p>Please provide details on the input/output formats desired so that support can be implemented.</p>
+<p>
+</p>
+<h2><a name="acknowledgements">ACKNOWLEDGEMENTS</a></h2>
+<p>We would like to thank RMIT University for offering Scripting Language Programming as a course, the tutors/staff involved with this course and <strong>Dr Andy Song</strong> for being so cool.</p>
+<p>
+</p>
+<h2><a name="copyright___licence">COPYRIGHT &amp; LICENCE</a></h2>
+<p>The contents of this module/script are free to be used where applicable, with sufficient crediting where appropriate.</p>
+<p>Copyright Warren Dawes &amp; Candy Goodison @ 2016</p>
+<p>PLEASE DO NOT REDISTRIBUTE!!</p>
+<p>
+</p>
+<h2><a name="availability">AVAILABILITY</a></h2>
+<p>Support for the module/script ends after Semester 1 - 2016.</p>
+<p>
+</p>
+<h2><a name="authors">AUTHORS</a></h2>
+<p>This module/script was constructed over several weeks by the following individuals:</p>
+<ul>
+<li>
+<p>Warren Dawes - <a href="mailto:s3489723@student.rmit.edu.au">s3489723@student.rmit.edu.au</a></p>
+</li>
+<li>
+<p>Candice Goodison - <a href="mailto:s3285133@student.rmit.edu.au">s3285133@student.rmit.edu.au</a></p>
+</li>
+</ul>
+<p>
+</p>
+<h2><a name="see_also">SEE ALSO</a></h2>
+<p><a href="http://www1.rmit.edu.au/courses/014048">http://www1.rmit.edu.au/courses/014048</a>, <a href="https://juerd.nl/site.plp/perlpodtut">https://juerd.nl/site.plp/perlpodtut</a></p>
+<p>-----------------------------------------------------------------------------------------------------------</p>
+<p>
+</p>
+<h2><a name="methods">METHODS</a></h2>
+<p>These are the subs which are used within this script:</p>
+<dl>
+<dt><strong><a name="commandargshandler" class="item"><code>CommandArgsHandler()</code></a></strong></dt>
+
+<dd>
+<p>Checks if any arguments were supplied to the script and attempts to set an input/output file.
+If found, these overwrite default (emails.json and events.json).</p>
+</dd>
+<dt><strong><a name="fileopener" class="item"><code>FileOpener($inputFile)</code></a></strong></dt>
+
+<dd>
+<p>Attempts to open the file containing all emails to process.
+<em>Note:This method will die if unable to open the emails file.</em></p>
+</dd>
+<dt><strong><a name="printtoconsole" class="item"><code>PrintToConsole($string)</code></a></strong></dt>
+
+<dd>
+<p>Print $string to console (where $string is important).</p>
+</dd>
+</dl>
+
+</body>
+
+</html>
