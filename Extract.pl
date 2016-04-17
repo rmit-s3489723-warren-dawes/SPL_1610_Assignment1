@@ -3,64 +3,87 @@ use strict;
 use warnings;
 use EventExtractor qw(ReportPrint DebugPrint KeyValueExtractor EmailStructBuilder EmailPrinter EmailContentParser PrintOutput);
 
-=head1 NAME
-	Event.pl - Sample script showing implementation of the EventExtractor module.
-=head1 SYNOPSIS
-	This script supports 3 types of usage:
-	perl Extract.pl
-	perl Extract.pl input.json
-	perl Extract.pl inout.json output.json
-	
-	I<Note:Input and output can be any file extension, but just represet JSON format.>
-=head1 BUGS 
-	Please report any bugs detected to s3489723@student.rmit.edu.au or s3285133@student.rmit.edu.au.
-	
-	Please provide details on the input/output formats desired so that support can be implemented.
-=head1 ACKNOWLEDGEMENTS
-	We would like to thank RMIT University for offering Scripting Language Programming as a course, the tutors/staff involved with this course and B<Dr Andy Song> for being so cool.
-=head1 COPYRIGHT & LICENCE
-	The contents of this module/script are free to be used where applicable, with sufficient crediting where appropriate.
-	
-	C<Copyright Warren Dawes & Candy Goodison @ 2016>
-	
-	PLEASE DO NOT REDISTRIBUTE!!
-=head1 AVAILABILITY
-	Support for the module/script ends after Semester 1 - 2016.
-=head1 AUTHORS
-	This module/script was constructed over several weeks by the following individuals:
-	
+=pod
+
+=head2 NAME
+
+Extract.pl - Sample script showing implementation of the EventExtractor module.
+
+=head2 SYNOPSIS
+
+This script supports 3 types of usage:
+perl Extract.pl
+perl Extract.pl input.json
+perl Extract.pl inout.json output.json
+
+I<Note:Input and output can be any file extension, but just represet JSON format.>
+
+=head2 BUGS 
+
+Please report any bugs detected to s3489723@student.rmit.edu.au or s3285133@student.rmit.edu.au.
+
+Please provide details on the input/output formats desired so that support can be implemented.
+
+=head2 ACKNOWLEDGEMENTS
+
+We would like to thank RMIT University for offering Scripting Language Programming as a course, the tutors/staff involved with this course and B<Dr Andy Song> for being so cool.
+
+=head2 COPYRIGHT & LICENCE
+
+The contents of this module/script are free to be used where applicable, with sufficient crediting where appropriate.
+
+Copyright Warren Dawes & Candy Goodison @ 2016
+
+PLEASE DO NOT REDISTRIBUTE!!
+
+=head2 AVAILABILITY
+
+Support for the module/script ends after Semester 1 - 2016.
+
+=head2 AUTHORS
+
+This module/script was constructed over several weeks by the following individuals:
+
 =over 4
 
-=item B<NAME - STUDENT EMAIL>
-=item Warren Dawes - s3489723@student.rmit.edu.au
-=item Candice Goodison - s3285133@student.rmit.edu.au
+=item *
+
+Warren Dawes - s3489723@student.rmit.edu.au
+
+=item *
+
+Candice Goodison - s3285133@student.rmit.edu.au
 
 =back
 
-=head1 SEE ALSO
-	L<http://www1.rmit.edu.au/courses/014048>, L<https://juerd.nl/site.plp/perlpodtut>
+=head2 SEE ALSO
+
+L<http://www1.rmit.edu.au/courses/014048>, L<https://juerd.nl/site.plp/perlpodtut>
 
 -----------------------------------------------------------------------------------------------------------
 
 =head2 METHODS
-	These are the subs which are used within this script:
+
+These are the subs which are used within this script:
+
 =over 8
 
 =item C<CommandArgsHandler()>
 
-	Checks if any arguments were supplied to the script and attempts to set an input/output file.
-	If found, these overwrite default (emails.json and events.json).
+Checks if any arguments were supplied to the script and attempts to set an input/output file.
+If found, these overwrite default (emails.json and events.json).
 
 =item C<FileOpener($inputFile)>
 
-	Attempts to open the file containing all emails to process.
-	I<Note:This method will die if unable to open the emails file.>
-	
+Attempts to open the file containing all emails to process.
+I<Note:This method will die if unable to open the emails file.>
+
 =item C<PrintToConsole($string)>
 
-	Print $string to console (where $string is important).
+Print $string to console (where $string is important).
 
 =back
+
 =cut
 
 #parse command args
