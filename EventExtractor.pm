@@ -1504,41 +1504,33 @@ sub PrintOutput {
 			print $file "  {\n    \"start\" : {\n      ";
 			
 			my $count = 0;
-			while ((my $key, my $value) = each $startSection)
-			{
-				
-				if ($count==0)
-				{
-					print $file "\"$key\":  \"$$startSection{$key}\",\n      ";
-					
-				}
-				else
-				{
-					print $file "\"$key\":  \"$$startSection{$key}\"\n    },\n";
-				}
 			
-			$count = 1;	
+			if(exists($$startSection{datetime}))
+			{
+				print $file "\"datetime\":  \"$$startSection{datetime}\",\n      ";
+				print $file "\"timezone\":  \"$$startSection{timezone}\"\n    },\n";
+			}
+			else 
+			{
+				print $file "\"timezone\":  \"$$startSection{timezone}\",\n      ";
+				print $file "\"date\":  \"$$startSection{date}\"\n    },\n";
 			}
 			
 			print $file "    \"end\" : {\n      ";
 			my $endSection = $event->{'end'};
-
-			$count = 0;
-			while ((my $key, my $value) = each $startSection)
-			{
-				
-				if ($count==0)
-				{
-					print $file "\"$key\":  \"$$endSection{$key}\",\n      ";
-					
-				}
-				else
-				{
-					print $file "\"$key\":  \"$$endSection{$key}\"\n    }\n";
-				}
 			
-			$count = 1;	
+			if(exists($$startSection{datetime}))
+			{
+				print $file "\"datetime\":  \"$$endSection{datetime}\",\n      ";
+				print $file "\"timezone\":  \"$$endSection{timezone}\"\n    }\n";
 			}
+			else 
+			{
+				print $file "\"timezone\":  \"$$endSection{timezone}\",\n      ";
+				print $file "\"date\":  \"$$endSection{date}\"\n    }\n";
+			}
+			
+			$count = 0;
 		
 				
 		}
