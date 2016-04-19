@@ -9,15 +9,18 @@ use warnings;
 
 use LWP::Simple;
 
-use POSIX;
-use Time::Seconds;
-use Time::Piece ':override';
-
 use Date::Parse;
-use Date::Format 'time2str';
+use Date::Format qw(time2str asctime);
+
+use POSIX qw(strftime);
+
+use Time::Local;
 
 #can be changed to suit year (that is parsed by default)
 my $YEAR = 2016;
+
+#seconds in a day
+my $ONE_DAY = 86400;
 
 =head2 NAME
 
@@ -62,6 +65,8 @@ Warren Dawes - s3489723@student.rmit.edu.au
 =item *
 
 Candice Goodison - s3285133@student.rmit.edu.au
+
+B<I<Note:Candice Goodison has withdrawn from the course, mark distribution thus falls all on Warren Dawes (100%).>>
 
 =back
 
@@ -304,23 +309,23 @@ my @timePattern =
 #eg join('|', @datePattern)
 my @datePattern =
 (
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)', 	#match April-(4|14)(th)-(2006|06) with time/duration
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',	#match (4|14)(th)-April-(2006|06) with time/duration
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)', 		#match April-(4|14)(th)-(2006|06) with time/duration
+	'\d{1,2}(?:st|th|nd|rd)?(?: of)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',	#match (4|14)(th)-April-(2006|06) with time/duration
 	
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)', 			#match April-(4|14)(th)-(2006|06) with time/duration (allowing 12 - 2pm format)
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',			#match (4|14)(th)-April-(2006|06) with time/duration (allowing 12 - 2pm format)
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)', 				#match April-(4|14)(th)-(2006|06) with time/duration (allowing 12 - 2pm format)
+	'\d{1,2}(?:st|th|nd|rd)?(?: of)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',			#match (4|14)(th)-April-(2006|06) with time/duration (allowing 12 - 2pm format)
 	
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',					#match April-(4|14)(th) (assumes that its this year) with time/duration
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',					#match (4|14)(th)-April (assumes that its this year) with time/duration
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',						#match April-(4|14)(th) (assumes that its this year) with time/duration
+	'\d{1,2}(?:st|th|nd|rd)?(?: of)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',					#match (4|14)(th)-April (assumes that its this year) with time/duration
 
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})',		#match April-(4|14)(th)-(2006|06)
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})',		#match (4|14)(th)-April-(2006|06)
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}(?:\d{4}|\d{2})',			#match April-(4|14)(th)-(2006|06)
+	'\d{1,2}(?:st|th|nd|rd)?(?: of)?[-\s~,.]{1,3}$[-\s~,.]{1,3}(?:\d{4}|\d{2})',		#match (4|14)(th)-April-(2006|06)
 
-	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',							#match April-(4|14)(th) (assumes that its this year) with time/duration (allowing 12 - 2pm format)
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',							#match (4|14)(th)-April (assumes that its this year) with time/duration (allowing 12 - 2pm format)
+	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',								#match April-(4|14)(th) (assumes that its this year) with time/duration (allowing 12 - 2pm format)
+	'\d{1,2}(?:st|th|nd|rd)?(?: of)?[-\s~,.]{1,3}$(?:[-\s~,.]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:[-\s~]{1,3}(?:\d{1,2}:\d{2}|\d{1,2})(?:\s[pa]m|[pa]m))?)',							#match (4|14)(th)-April (assumes that its this year) with time/duration (allowing 12 - 2pm format)
 	
 	'\b$[-\s~,.]{1,3}\d{1,2}(?:st|th|nd|rd)?[^-\s~,.]\b',				#match April-(4|14)(th) (assumes that its this year)
-	'\d{1,2}(?:st|th|nd|rd)?[-\s~,.]{1,3}$\b[^-\s~,.]\b',				#match (4|14)(th)-April (assumes that its this year)
+	'\d{1,2}(?:st|th|nd|rd)?(?: of)?[-\s~,.]{1,3}$\b[^-\s~,.]\b',			#match (4|14)(th)-April (assumes that its this year)
 	
 	'\d{4}[-\s~,.]{1,3}#[-\s~,.]{1,3}\d{1,2}',					#match 2015 01 20 (spaces can be [-\s~,.])
 	'\d{4}[-\s~,.]{1,3}\d{1,2}[-\s~,.]{1,3}#',					#match 2015 20 01 (spaces can be [-\s~,.])
@@ -439,16 +444,31 @@ sub EventDateProcess{
 	
 	ReportPrint("-------------------\n");
 	ReportPrint("->EVENTDATEPROCESS()<-\n");
-	
+
 	#strip spaces/specific characters
-	$$sentField =~ s/\s+|T+|-+|:+|.00Z+//g;  #thids makes sent field into a numbers only format ie 20160312 (24hr)
+	#$$sentField =~ s/\s+|T+|-+|:+|.00Z+//g;  #thids makes sent field into a numbers only format ie 20160312 (24hr)
 	
 	#convert to a friendly format (inclusive of day)
-	my $sentDate = Time::Piece->strptime($$sentField, "%Y%m%d%H%M%S");
+	my @sentDateArray = ($$sentField =~ /(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+).00Z/);
+	my $sentEpoch = timegm($sentDateArray[5], $sentDateArray[4], $sentDateArray[3], $sentDateArray[2], ($sentDateArray[1] - 1), $sentDateArray[0]);
+	
+	#my $dateDated = gmtime($sentEpoch);
+	#my $dateParsed = str2time("1995-1-24T09:08:17");
+	
+	#my $dateDated2 = localtime($dateParsed);
+	
+	#ReportPrint("->BEFORE:$dateDated<-\n");
+	
+	#ReportPrint("->AFTER:$dateDated2<-\n");
 	
 	my $eventType = "date";		#default as a date (datetime if time specified)
-	my $eventDuration = ONE_DAY;	#24 hours of seconds
-	my $eventStart = $sentDate;
+	
+	my $eventDuration = $ONE_DAY;	#24 hours of seconds
+	my $eventEpoch = timegm(0, 0, 0, $sentDateArray[2], ($sentDateArray[1] - 1), $sentDateArray[0]);
+	my $eventDate = gmtime($eventEpoch);
+	my $eventDOW = (gmtime($eventEpoch))[6];
+
+	DebugPrint("->$eventDOW|$eventDate<-\n");
 
 	#attempt to discover the month (either short-hand or full-word)
 	foreach my $month (keys %monthofyear)
@@ -501,11 +521,11 @@ sub EventDateProcess{
 				DebugPrint("->DATETIME:$dateTime<-\n");
 				
 				#replace any invalid characters
-				$eventTrigger =~ s/(st[\s,]+|th[\s,]+|nd[\s,]+|rd[\s,]+)|[-\s,\.]+/-/ig;
+				$eventTrigger =~ s/(st[\s,]+|th[\s,]+|nd[\s,]+|rd[\s,]+)(of[\s,]+)?|[-\s,\.]+/-/ig;
 					
-				DebugPrint("->STRIPPED:$eventTrigger<-\n");
+				ReportPrint("->STRIPPED:$eventTrigger<-\n");
 
-				my $parsePattern;
+				my %parsedDate;
 				
 				if ($eventTrigger =~ m/\b\d{2,4}-$monthNumber-\d{1,2}\b/i)	#this would match 06-04-02 or 2006-04-02
 				{
@@ -514,12 +534,17 @@ sub EventDateProcess{
 					#if year is 2 digit format
 					if ($eventTrigger =~ m/\b\d{2}-$monthNumber-\d{1,2}\b/i)
 					{
-						$parsePattern = '%y-%m-%d';
-						
+						$eventTrigger =~ /(\d+)-$monthNumber-(\d+)/;
+						$parsedDate{'year'} = $1; #'%y-%m-%d';
+						$parsedDate{'month'} = $monthNumber;
+						$parsedDate{'day'} = $2;
 					}
 					elsif ($eventTrigger =~ m/\b\d{4}-$monthNumber-\d{1,2}\b/i)
 					{
-						$parsePattern = '%Y-%m-%d';
+						$eventTrigger =~ /(\d+)-$monthNumber-(\d+)/;
+						$parsedDate{'year'} = $1; #'%Y-%m-%d';
+						$parsedDate{'month'} = $monthNumber;
+						$parsedDate{'day'} = $2;
 					}
 				}
 				elsif ($eventTrigger =~ m/\b\w+-\d{1,2}-\d{2,4}\b/i)	#this would match April-02-06 or April-02-2006
@@ -531,12 +556,18 @@ sub EventDateProcess{
 					{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
-						{							
-							$parsePattern = '%b-%d-%y';
+						{					
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;		
+							$parsedDate{'year'} = $2; #'%b-%d-%y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%B-%d-%y';
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;
+							$parsedDate{'year'} = $2; #'%B-%d-%y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						
 					}
@@ -545,11 +576,17 @@ sub EventDateProcess{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%b-%d-%Y';
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;
+							$parsedDate{'year'} = $2; #'%b-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%B-%d-%Y';
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;
+							$parsedDate{'year'} = $2; #'%B-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 					}
 				}
@@ -564,12 +601,18 @@ sub EventDateProcess{
 						
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
-						{							
-							$parsePattern = '%d-%b-%y';
+						{
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%b-%y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%d-%B-%y';
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%B-%y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						
 					}
@@ -580,11 +623,17 @@ sub EventDateProcess{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%d-%b-%Y';
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%b-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%d-%B-%Y';
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%B-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 					}
 				}
@@ -592,17 +641,25 @@ sub EventDateProcess{
 				{
 					DebugPrint("->day-month(text)|month(text)-day<-\n");
 					
+					DebugPrint("->PROCESS:$eventTrigger<-\n");
+					
 					#if day-month
 					if ($eventTrigger =~ m/\b\d{1,2}-\w+\b/i)
 					{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%d-%b-%Y';
+							$parsedDate{'year'} = $YEAR; #'%d-%b-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /(\d+)-\w+/;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%d-%B-%Y';
+							$parsedDate{'year'} = $YEAR; #'%d-%B-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /(\d+)-\w+/;
+							$parsedDate{'day'} = $1;
 						}						
 					}
 					elsif ($eventTrigger =~ m/\b\w+\d{1,2}\b/i)
@@ -610,24 +667,35 @@ sub EventDateProcess{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%b-%d-%Y';
+							$parsedDate{'year'} = $YEAR; #'%b-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /\w+-(\d+)/;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%B-%d-%Y';
+							$parsedDate{'year'} = $YEAR; #'%B-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /\w+-(\d+)/;
+							$parsedDate{'day'} = $1;
 						}
 					}
 					
 					#append current year
-					$eventTrigger .= "-$YEAR";
+					#$eventTrigger .= "-$YEAR";
 				}
 				
-				DebugPrint("->$parsePattern<-\n");
+				#DebugPrint("->$parsePattern<-\n");
+				
+				#foreach my $key (keys %parsedDate)
+				#{
+				#	ReportPrint("->K=$key|V=" . $parsedDate{$key} . "<-\n");
+				#}
 				
 				#convert to a friendly format based on input
 				#allow errors
 				my $parsedDate;
-				eval { $parsedDate = Time::Piece->strptime($eventTrigger, $parsePattern); };
+				eval { $parsedDate = timegm(0, 0, 0, $parsedDate{'day'}, ($parsedDate{'month'} - 1), $parsedDate{'year'}); };
 				if($@) {
 					#strip newline
 					chomp $@;
@@ -635,27 +703,27 @@ sub EventDateProcess{
 					# print error
 					ReportPrint("-------------------\n");
 					ReportPrint("->ERROR:$@<-\n");
-					ReportPrint("->PATTERN:$parsePattern<-\n");
+					#ReportPrint("->PATTERN:$parsePattern<-\n");
 					ReportPrint("-------------------\n");
 				}
 				
 				#set sentdate to start of day
 				#so that we can set the start/end of the event accordingly
-				$eventStart = $parsedDate;
+				$eventEpoch = $parsedDate;
 				
-				if ($eventStart)
+				if ($parsedDate)
 				{
-					EventTimeParse($dateTime, \$eventStart, \$eventDuration, $datediff{$$timeZoneField});
+					EventTimeParse($dateTime, \$eventEpoch, \$eventDuration, $datediff{$$timeZoneField});
 				}				
 			}
 			else
-			{				
+			{		
 				#replace any invalid characters
-				$eventTrigger =~ s/(st[\s,]+|th[\s,]+|nd[\s,]+|rd[\s,]+)|[-\s,\.]+/-/ig;
+				$eventTrigger =~ s/(st[\s,]+|th[\s,]+|nd[\s,]+|rd[\s,]+)(of[\s,]+)?|[-\s,\.]+/-/ig;
 					
 				DebugPrint("->STRIPPED:$eventTrigger<-\n");
 
-				my $parsePattern;
+				my %parsedDate;
 				
 				if ($eventTrigger =~ m/\b\d{2,4}-$monthNumber-\d{1,2}\b/i)	#this would match 06-04-02 or 2006-04-02
 				{
@@ -664,12 +732,17 @@ sub EventDateProcess{
 					#if year is 2 digit format
 					if ($eventTrigger =~ m/\b\d{2}-$monthNumber-\d{1,2}\b/i)
 					{
-						$parsePattern = '%y-%m-%d';
-						
+						$eventTrigger =~ /(\d+)-$monthNumber-(\d+)/;
+						$parsedDate{'year'} = $1; #'%y-%m-%d';
+						$parsedDate{'month'} = $monthNumber;
+						$parsedDate{'day'} = $2;
 					}
 					elsif ($eventTrigger =~ m/\b\d{4}-$monthNumber-\d{1,2}\b/i)
 					{
-						$parsePattern = '%Y-%m-%d';
+						$eventTrigger =~ /(\d+)-$monthNumber-(\d+)/;
+						$parsedDate{'year'} = $1; #'%Y-%m-%d';
+						$parsedDate{'month'} = $monthNumber;
+						$parsedDate{'day'} = $2;
 					}
 				}
 				elsif ($eventTrigger =~ m/\b\w+-\d{1,2}-\d{2,4}\b/i)	#this would match April-02-06 or April-02-2006
@@ -681,12 +754,18 @@ sub EventDateProcess{
 					{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
-						{							
-							$parsePattern = '%b-%d-%y';
+						{					
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;		
+							$parsedDate{'year'} = $2; #'%b-%d-%y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%B-%d-%y';
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;
+							$parsedDate{'year'} = $2; #'%B-%d-%y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						
 					}
@@ -695,11 +774,17 @@ sub EventDateProcess{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%b-%d-%Y';
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;
+							$parsedDate{'year'} = $2; #'%b-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%B-%d-%Y';
+							$eventTrigger =~ /\w+-(\d+)-(\d+)/;
+							$parsedDate{'year'} = $2; #'%B-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$parsedDate{'day'} = $1;
 						}
 					}
 				}
@@ -714,14 +799,21 @@ sub EventDateProcess{
 						
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
-						{							
-							$parsePattern = '%d-%b-%y';
+						{
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%b-%y';
+							$parsedDate{'day'} = $1;
+							DebugPrint("->DAY=$1|YEAR=$2<-\n");
+							$parsedDate{'month'} = $monthNumber;							
 						}
 						else
 						{
-							$parsePattern = '%d-%B-%y';
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%B-%y';
+							$parsedDate{'day'} = $1;
+							DebugPrint("->DAY=$1|YEAR=$2<-\n");
+							$parsedDate{'month'} = $monthNumber;							
 						}
-						
 					}
 					elsif ($eventTrigger =~ m/\b\d{1,2}-\w+-\d{4}\b/i)
 					{
@@ -730,11 +822,19 @@ sub EventDateProcess{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%d-%b-%Y';
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%b-%Y';
+							$parsedDate{'day'} = $1;
+							DebugPrint("->DAY=$1|YEAR=$2<-\n");
+							$parsedDate{'month'} = $monthNumber;							
 						}
 						else
 						{
-							$parsePattern = '%d-%B-%Y';
+							$eventTrigger =~ /(\d+)-\w+-(\d+)/;
+							$parsedDate{'year'} = $2; #'%d-%B-%Y';
+							$parsedDate{'day'} = $1;
+							DebugPrint("->DAY=$1|YEAR=$2<-\n");
+							$parsedDate{'month'} = $monthNumber;
 						}
 					}
 				}
@@ -742,17 +842,25 @@ sub EventDateProcess{
 				{
 					DebugPrint("->day-month(text)|month(text)-day<-\n");
 					
+					DebugPrint("->PROCESS:$eventTrigger<-\n");
+					
 					#if day-month
 					if ($eventTrigger =~ m/\b\d{1,2}-\w+\b/i)
 					{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%d-%b-%Y';
+							$parsedDate{'year'} = $YEAR; #'%d-%b-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /(\d+)-\w+/;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%d-%B-%Y';
+							$parsedDate{'year'} = $YEAR; #'%d-%B-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /(\d+)-\w+/;
+							$parsedDate{'day'} = $1;
 						}						
 					}
 					elsif ($eventTrigger =~ m/\b\w+\d{1,2}\b/i)
@@ -760,24 +868,33 @@ sub EventDateProcess{
 						#if abbreviated (eg Apr.)
 						if ($monthName =~ m/\.$/i)
 						{							
-							$parsePattern = '%b-%d-%Y';
+							$parsedDate{'year'} = $YEAR; #'%b-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /\w+-(\d+)/;
+							$parsedDate{'day'} = $1;
 						}
 						else
 						{
-							$parsePattern = '%B-%d-%Y';
+							$parsedDate{'year'} = $YEAR; #'%B-%d-%Y';
+							$parsedDate{'month'} = $monthNumber;
+							$eventTrigger =~ /\w+-(\d+)/;
+							$parsedDate{'day'} = $1;
 						}
 					}
 					
 					#append current year
-					$eventTrigger .= "-$YEAR";
+					#$eventTrigger .= "-$YEAR";
 				}
 				
-				DebugPrint("->$parsePattern<-\n");
+				#DebugPrint("->$parsePattern<-\n");
 				
 				#convert to a friendly format based on input
 				#allow errors
+				
+				DebugPrint("->DAY=" . $parsedDate{'day'} . "|MONTH=" . ($parsedDate{'month'} - 1) . "|YEAR=" . $parsedDate{'year'} . "<-\n");
+				
 				my $parsedDate;
-				eval { $parsedDate = Time::Piece->strptime($eventTrigger, $parsePattern); };
+				eval { $parsedDate = timegm(0, 0, 0, $parsedDate{'day'}, ($parsedDate{'month'} - 1), $parsedDate{'year'}); };
 				if($@) {
 					#strip newline
 					chomp $@;
@@ -785,24 +902,35 @@ sub EventDateProcess{
 					# print error
 					ReportPrint("-------------------\n");
 					ReportPrint("->ERROR:$@<-\n");
-					ReportPrint("->PATTERN:$parsePattern<-\n");
+					#ReportPrint("->PATTERN:$parsePattern<-\n");
 					ReportPrint("-------------------\n");
 				}
 				
 				#set sentdate to start of day
 				#so that we can set the start/end of the event accordingly
-				$eventStart = $parsedDate;
+				$eventEpoch = $parsedDate;
 			}
 		
-			if ($eventStart)
+			if ($eventEpoch)
 			{
 				#check eventtype
 				if ($eventType eq "datetime")			
 				{
-					my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-					my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+					my @eventStartArray = gmtime($eventEpoch);				
+					my $eventStartFormat = strftime("%Y-%m-%dT%H:%M:%S.00Z", @eventStartArray);
 					
-					ReportPrint("->OFFSET:" . $eventStart->tzoffset . "<-\n");
+					#strip newline
+					chomp $eventStartFormat;
+					
+					DebugPrint("->TYPE=DATETIME|$eventDuration<-\n");
+					
+					$eventEpoch += $eventDuration;
+					
+					my @eventEndArray = gmtime($eventEpoch);
+					my $eventEndFormat = strftime("%Y-%m-%dT%H:%M:%S.00Z", @eventEndArray);
+					
+					#strip newline
+					chomp $eventEndFormat;
 					
 					EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
 					EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -812,8 +940,21 @@ sub EventDateProcess{
 				}
 				else
 				{
-					my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
-					my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+					my @eventStartArray = gmtime($eventEpoch);				
+					my $eventStartFormat = strftime("%Y-%m-%d", @eventStartArray);
+					
+					#strip newline
+					chomp $eventStartFormat;
+					
+					DebugPrint("->TYPE=DATE|$eventDuration<-\n");
+					
+					$eventEpoch += $eventDuration;
+					
+					my @eventEndArray = gmtime($eventEpoch);
+					my $eventEndFormat = strftime("%Y-%m-%d", @eventEndArray);
+					
+					#strip newline
+					chomp $eventEndFormat;
 					
 					EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
 					EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -825,7 +966,7 @@ sub EventDateProcess{
 		}
 	}
 	
-	ReportPrint("-------------------\n");
+	#ReportPrint("-------------------\n");
 }
 
 sub EventTimeProcess {
@@ -844,17 +985,22 @@ sub EventTimeProcess {
 	ReportPrint("->EVENTTIMEPROCESS()<-\n");
 
 	#strip spaces/specific characters
-	$$sentField =~ s/\s+|T+|-+|:+|.00Z+//g;
+	#$$sentField =~ s/\s+|T+|-+|:+|.00Z+//g;  #thids makes sent field into a numbers only format ie 20160312 (24hr)
 	
 	#convert to a friendly format (inclusive of day)
-	my $sentDate = Time::Piece->strptime($$sentField, "%Y%m%d%H%M%S");
+	my @sentDateArray = ($$sentField =~ /(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+).00Z/);
+	my $sentEpoch = timegm($sentDateArray[5], $sentDateArray[4], $sentDateArray[3], $sentDateArray[2], ($sentDateArray[1] - 1), $sentDateArray[0]);
 	
 	#default as a date (datetime if time specified)
 	my $eventType = "date";
 	
 	#default duration for day = 1 day (86400 seconds)
-	my $eventDuration = ONE_DAY;
-	my $eventStart;
+	my $eventDuration = $ONE_DAY;
+	my $eventEpoch = timegm(0, 0, 0, $sentDateArray[2], ($sentDateArray[1] - 1), $sentDateArray[0]);
+	my $eventDate = gmtime($eventEpoch);
+	my $eventDOW = (gmtime($eventEpoch))[6];
+
+	DebugPrint("->$eventDOW|$eventDate<-\n");
 
 	#store copy and replace pattern
 	my $usePattern = join('|', @timePattern);
@@ -895,57 +1041,49 @@ sub EventTimeProcess {
 			
 			#set sentdate to start of day
 			#so that we can set the start/end of the event accordingly
-			$eventStart = $sentDate;
-			$eventStart -= ($eventStart->hour * 60 * 60);
-			$eventStart -= ($eventStart->minute * 60);
-			$eventStart -= $eventStart->second;
 			
 			#set event start			
 			if ($relativeTerm eq "tomorrow")
 			{
-				$eventStart += ONE_DAY * 1;
+				$eventEpoch += $ONE_DAY * 1;
 			}
 			
 			#default duration for time = 1 hour (3600 seconds)
 			$eventDuration = 3600;
 			
-			EventTimeParse($eventTrigger, \$eventStart, \$eventDuration, $datediff{$$timeZoneField});
+			if (!EventTimeParse($eventTrigger, \$eventEpoch, \$eventDuration, $datediff{$$timeZoneField}))
+			{
+				next;
+			}
 		}
 		else
 		{
-			#if the $relativeTerm is today, then we set rest of the day as possible remainder
-			if ($relativeTerm eq "today")
-			{
-				#set sentdate but maintain current time (as event will be remainder
-				#so that we can set the start/end of the event accordingly
-				$eventStart = $sentDate;
-
-				#set duration to be remainder of the day
-				#note: should match 11:59pm that day
-				$eventDuration -= ($eventStart->hour * (60 * 60));
-				$eventDuration -= ($eventStart->minute * 60);
-				$eventDuration -= ($eventStart->second);
-			}
-			
-			#set event start			
+			#if the $relativeTerm is tomorrow, we add 1 day
 			if ($relativeTerm eq "tomorrow")
 			{
-				#set sentdate to start of day
-				#so that we can set the start/end of the event accordingly
-				#then add 1 day as event is tomorrow
-				$eventStart = $sentDate;
-				$eventStart -= ($eventStart->hour * (60 * 60));
-				$eventStart -= ($eventStart->minute * 60);
-				$eventStart -= $eventStart->second;
-				$eventStart += ONE_DAY * 1;
+				#add 1 day as event is tomorrow
+				$eventEpoch += $ONE_DAY * 1;
 			}
 		}
 	
 		#check eventtype
 		if ($eventType eq "datetime")			
 		{
-			my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			my @eventStartArray = gmtime($eventEpoch);				
+			my $eventStartFormat = strftime("%Y-%m-%dT%H:%M:%S.00Z", @eventStartArray);
+			
+			#strip newline
+			chomp $eventStartFormat;
+			
+			DebugPrint("->TYPE=DATETIME|$eventDuration<-\n");
+			
+			$eventEpoch += $eventDuration;
+			
+			my @eventEndArray = gmtime($eventEpoch);
+			my $eventEndFormat = strftime("%Y-%m-%dT%H:%M:%S.00Z", @eventEndArray);
+			
+			#strip newline
+			chomp $eventEndFormat;
 			
 			EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
 			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -955,8 +1093,21 @@ sub EventTimeProcess {
 		}
 		else
 		{
-			my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
-			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+			my @eventStartArray = gmtime($eventEpoch);				
+			my $eventStartFormat = strftime("%Y-%m-%d", @eventStartArray);
+			
+			#strip newline
+			chomp $eventStartFormat;
+			
+			DebugPrint("->TYPE=DATE|$eventDuration<-\n");
+			
+			$eventEpoch += $eventDuration;
+			
+			my @eventEndArray = gmtime($eventEpoch);
+			my $eventEndFormat = strftime("%Y-%m-%d", @eventEndArray);
+			
+			#strip newline
+			chomp $eventEndFormat;
 			
 			EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
 			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -971,38 +1122,31 @@ sub EventTimeProcess {
 	{
 		ReportPrint("->REMAINDER:$relativeTerm<-\n");
 		
-		#if the $relativeTerm is today, then we set rest of the day as possible remainder
-		if ($relativeTerm eq "today")
-		{
-			#set sentdate but maintain current time (as event will be remainder
-			#so that we can set the start/end of the event accordingly
-			$eventStart = $sentDate;
-
-			#set duration to be remainder of the day
-			#note: should match 11:59pm that day
-			$eventDuration -= ($eventStart->hour * (60 * 60));
-			$eventDuration -= ($eventStart->minute * 60);
-			$eventDuration -= ($eventStart->second);
-		}
-		
-		#set event start			
+		#if the $relativeTerm is tomorrow, we add 1 day
 		if ($relativeTerm eq "tomorrow")
 		{
-			#set sentdate to start of day
-			#so that we can set the start/end of the event accordingly
-			#then add 1 day as event is tomorrow
-			$eventStart = $sentDate;
-			$eventStart -= ($eventStart->hour * (60 * 60));
-			$eventStart -= ($eventStart->minute * 60);
-			$eventStart -= $eventStart->second;
-			$eventStart += ONE_DAY * 1;
+			#add 1 day as event is tomorrow
+			$eventEpoch += $ONE_DAY * 1;
 		}
 		
 		#check eventtype
 		if ($eventType eq "datetime")			
 		{
-			my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+			my @eventStartArray = gmtime($eventEpoch);				
+			my $eventStartFormat = asctime(@eventStartArray); #time2str("%Y-%m-%dT%H:%M:%S.00Z", gmtime($eventEpoch));
+			
+			#strip newline
+			chomp $eventStartFormat;
+			
+			DebugPrint("->TYPE=DATETIME|$eventDuration<-\n");
+			
+			$eventEpoch += $eventDuration;
+			
+			my @eventEndArray = gmtime($eventEpoch);
+			my $eventEndFormat = asctime(@eventEndArray); #time2str("%Y-%m-%dT%H:%M:%S.00Z", gmtime($eventEpoch));
+			
+			#strip newline
+			chomp $eventEndFormat;
 			
 			EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
 			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -1012,8 +1156,21 @@ sub EventTimeProcess {
 		}
 		else
 		{
-			my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
-			my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+			my @eventStartArray = gmtime($eventEpoch);				
+			my $eventStartFormat = asctime(@eventStartArray); #time2str("%Y-%m-%dT%H:%M:%S.00Z", gmtime($eventEpoch));
+			
+			#strip newline
+			chomp $eventStartFormat;
+			
+			DebugPrint("->TYPE=DATETIME|$eventDuration<-\n");
+			
+			$eventEpoch += $eventDuration;
+			
+			my @eventEndArray = gmtime($eventEpoch);
+			my $eventEndFormat = asctime(@eventEndArray); #time2str("%Y-%m-%dT%H:%M:%S.00Z", gmtime($eventEpoch));
+			
+			#strip newline
+			chomp $eventEndFormat;
 			
 			EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
 			EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -1023,7 +1180,7 @@ sub EventTimeProcess {
 		}
 	}
 	
-	ReportPrint("-------------------\n");
+	#ReportPrint("-------------------\n");
 }
 
 sub EventDayTimeProcess {
@@ -1042,18 +1199,23 @@ sub EventDayTimeProcess {
 	ReportPrint("->EVENTDAYTIMEPROCESS()<-\n");
 
 	#strip spaces/specific characters
-	$$sentField =~ s/\s+|T+|-+|:+|.00Z+//g;
+	#$$sentField =~ s/\s+|T+|-+|:+|.00Z+//g;  #thids makes sent field into a numbers only format ie 20160312 (24hr)
 	
 	#convert to a friendly format (inclusive of day)
-	my $sentDate = Time::Piece->strptime($$sentField, "%Y%m%d%H%M%S");
+	my @sentDateArray = ($$sentField =~ /(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+).00Z/);
+	my $sentEpoch = timegm($sentDateArray[5], $sentDateArray[4], $sentDateArray[3], $sentDateArray[2], ($sentDateArray[1] - 1), $sentDateArray[0]);
 	
 	#default as a date (datetime if time specified)
 	my $eventType = "date";
 	
 	#default duration = 1 hour (3600 seconds)
 	my $eventDuration = 3600;
-	my $eventStart;
-
+	my $eventEpoch = timegm(0, 0, 0, $sentDateArray[2], ($sentDateArray[1] - 1), $sentDateArray[0]);
+	my $eventDate = gmtime($eventEpoch);
+	my $eventDOW = (gmtime($eventEpoch))[6];
+	
+	DebugPrint("->$eventDOW|$eventDate<-\n");
+	
 	#attempt to discover the day (either short-hand or full-word)
 	foreach my $day (keys %dayofweek)
 	{		
@@ -1078,25 +1240,19 @@ sub EventDayTimeProcess {
 			
 			$$contentField =~ s/$eventTrigger//;	
 			
-			#DebugPrint("->$$contentField<-\n");										
-													
-			#set sentdate to start of day
-			#so that we can set the start/end of the event accordingly
-			$eventStart = $sentDate;
-			$eventStart -= ($eventStart->hour * 60 * 60);
-			$eventStart -= ($eventStart->minute * 60);
-			$eventStart -= $eventStart->second;
-
 			#we set the starting date to sunday to progress further
 			if ($relativeTerm eq "next")
 			{
 				#add days to reach sunday
 				#add 1 to jump from Sunday @ 00:00 to Monday @ 00:00
-				$eventStart += ONE_DAY * ((7 - $eventStart->day_of_week) + 1);
+				$eventEpoch += $ONE_DAY * ((7 - $eventDOW) + 1);
+				
+				#set day-of-week to match Sunday (1-index based)
+				$eventDOW = 1;
 			}
 
 			#this will automatically place it in the future
-			$eventStart += ONE_DAY * (($dayofweek{$day} - $eventStart->day_of_week) % 7);
+			$eventEpoch += $ONE_DAY * (($dayofweek{$day} - $eventDOW) % 7);
 			
 			#strip day from result
 			$eventTrigger =~ s/$day\s|$day//ig;
@@ -1112,14 +1268,37 @@ sub EventDayTimeProcess {
 				#set as datetime (as time/duration specified)
 				$eventType = "datetime";
 					
-				EventTimeParse($eventTrigger, \$eventStart, \$eventDuration, $datediff{$$timeZoneField});
+				if (!EventTimeParse($eventTrigger, \$eventEpoch, \$eventDuration, $datediff{$$timeZoneField}))
+				{
+					next;
+				}
+				
+				#
+				#my $testFromEpochStr = asctime(@testFromEpoch);
+				
+				#ReportPrint("->DATE:$testFromEpoch<-\n");
+				#ReportPrint("->EPOCH:$eventEpoch<-\n");
+				#ReportPrint("->TRIGGER:$eventTrigger->$testFromEpochStr<-\n");
 			}			
 		
 			#check eventtype
 			if ($eventType eq "datetime")			
 			{
-				my $eventStartFormat = $eventStart->strftime("%Y-%m-%dT%H:%M:%S.00Z");
-				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%dT%H:%M:%S.00Z");
+				my @eventStartArray = gmtime($eventEpoch);				
+				my $eventStartFormat = strftime("%Y-%m-%dT%H:%M:%S.00Z", @eventStartArray);
+				
+				#strip newline
+				chomp $eventStartFormat;
+				
+				DebugPrint("->TYPE=DATETIME|$eventDuration<-\n");
+				
+				$eventEpoch += $eventDuration;
+				
+				my @eventEndArray = gmtime($eventEpoch);
+				my $eventEndFormat = strftime("%Y-%m-%dT%H:%M:%S.00Z", @eventEndArray);
+				
+				#strip newline
+				chomp $eventEndFormat;
 				
 				EventAppend($events, $$eventKey, "start", "datetime", $eventStartFormat);
 				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -1129,8 +1308,21 @@ sub EventDayTimeProcess {
 			}
 			else
 			{
-				my $eventStartFormat = $eventStart->strftime("%Y-%m-%d");
-				my $eventEndFormat = ($eventStart + $eventDuration)->strftime("%Y-%m-%d");
+				my @eventStartArray = gmtime($eventEpoch);				
+				my $eventStartFormat = strftime("%Y-%m-%d", @eventStartArray);
+				
+				#strip newline
+				chomp $eventStartFormat;
+				
+				DebugPrint("->TYPE=DATE|$eventDuration<-\n");
+				
+				$eventEpoch += $eventDuration;
+				
+				my @eventEndArray = gmtime($eventEpoch);
+				my $eventEndFormat = strftime("%Y-%m-%d", @eventEndArray);
+				
+				#strip newline
+				chomp $eventEndFormat;
 				
 				EventAppend($events, $$eventKey, "start", "date", $eventStartFormat);
 				EventAppend($events, $$eventKey, "start", "timezone", $$timeZoneField);
@@ -1141,7 +1333,7 @@ sub EventDayTimeProcess {
 		}
 	}
 	
-	ReportPrint("-------------------\n");
+	#ReportPrint("-------------------\n");
 }
 
 sub EventTimeParse {
@@ -1151,13 +1343,13 @@ sub EventTimeParse {
 	my $eventDuration = shift;
 	my $dateDiff = shift;
 	
-	ReportPrint("->DATEDIFF:$dateDiff<-\n");
+	DebugPrint("->DATEDIFF:$dateDiff<-\n");
 	
-	ReportPrint("->UTC:$$eventStart<-\n");
+	DebugPrint("->UTC:$$eventStart<-\n");
 	
 	$$eventStart -= $dateDiff;
 	
-	ReportPrint("->LOCAL:$$eventStart<-\n");
+	DebugPrint("->LOCAL:$$eventStart<-\n");
 	
 	if ($eventTrigger =~ m/(?:\d{1,2}|\d{1,2}:\d{2})(?:\s[pa]m|[pa]m)(?:[-\s~]{1,3}(?:\d{1,2}|\d{1,2}:\d{2})(?:\s[pa]m|[pa]m))?/i)	#check for 12 hour time with the am/pm (spacing allowed) with/without range
 	{
@@ -1208,6 +1400,12 @@ sub EventTimeParse {
 					($startHour, $startMinute) = ($seekStart, 0);
 				}
 				
+				#validate variables
+				if ($startHour < 0 || $startHour > 12  || $startMinute < 0 || $startMinute > 59)
+				{
+					return 0;
+				}
+				
 				#if time is precise (eg 4:30)
 				if ($seekEnd =~ m/\d{1,2}:\d{2}/ix)
 				{
@@ -1216,6 +1414,12 @@ sub EventTimeParse {
 				else
 				{
 					($endHour, $endMinute) = ($seekEnd, 0);
+				}
+				
+				#validate variables
+				if ($endHour < 0 || $endHour > 12  || $endMinute < 0 || $endMinute > 59)
+				{
+					return 0;
 				}
 				
 				#if the hour == 12 (aka 0 in real time)
@@ -1261,6 +1465,13 @@ sub EventTimeParse {
 				if ($seekStart =~ m/\d{1,2}:\d{2}/ix)
 				{
 					($startHour, $startMinute) = split(/:/, $seekStart);
+					
+					#validate variables
+					if ($startHour < 0 || $startHour > 12  || $startMinute < 0 || $startMinute > 59)
+					{
+						return 0;
+					}
+					
 					if ($startHour != 12)
 					{
 						$startHour += 12;
@@ -1269,6 +1480,13 @@ sub EventTimeParse {
 				else
 				{
 					($startHour, $startMinute) = ($seekStart, 0);
+					
+					#validate variables
+					if ($startHour < 0 || $startHour > 12  || $startMinute < 0 || $startMinute > 59)
+					{
+						return 0;
+					}
+					
 					if ($startHour != 12)
 					{
 						$startHour += 12;
@@ -1279,6 +1497,13 @@ sub EventTimeParse {
 				if ($seekEnd =~ m/\d{1,2}:\d{2}/ix)
 				{
 					($endHour, $endMinute) = split(/:/, $seekEnd);
+					
+					#validate variables
+					if ($endHour < 0 || $endHour > 12  || $endMinute < 0 || $endMinute > 59)
+					{
+						return 0;
+					}
+					
 					if ($endHour != 12)
 					{
 						$endHour += 12;
@@ -1287,6 +1512,13 @@ sub EventTimeParse {
 				else
 				{
 					($endHour, $endMinute) = ($seekEnd, 0);
+					
+					#validate variables
+					if ($endHour < 0 || $endHour > 12  || $endMinute < 0 || $endMinute > 59)
+					{
+						return 0;
+					}
+					
 					if ($endHour != 12)
 					{
 						$endHour += 12;
@@ -1334,6 +1566,13 @@ sub EventTimeParse {
 				if ($seekEnd =~ m/\d{1,2}:\d{2}/ix)
 				{
 					($endHour, $endMinute) = split(/:/, $seekEnd);
+					
+					#validate variables
+					if ($endHour < 0 || $endHour > 12  || $endMinute < 0 || $endMinute > 59)
+					{
+						return 0;
+					}
+					
 					if ($endHour != 12)
 					{
 						$endHour += 12;
@@ -1342,6 +1581,13 @@ sub EventTimeParse {
 				else
 				{
 					($endHour, $endMinute) = ($seekEnd, 0);
+					
+					#validate variables
+					if ($endHour < 0 || $endHour > 12  || $endMinute < 0 || $endMinute > 59)
+					{
+						return 0;
+					}					
+					
 					if ($endHour != 12)
 					{
 						$endHour += 12;
@@ -1385,6 +1631,13 @@ sub EventTimeParse {
 				if ($seekStart =~ m/\d{1,2}:\d{2}/ix)
 				{
 					($startHour, $startMinute) = split(/:/, $seekStart);
+					
+					#validate variables
+					if ($startHour < 0 || $startHour > 12  || $startMinute < 0 || $startMinute > 59)
+					{
+						return 0;
+					}
+					
 					if ($startHour != 12)
 					{
 						$startHour += 12;
@@ -1393,6 +1646,13 @@ sub EventTimeParse {
 				else
 				{
 					($startHour, $startMinute) = ($seekStart, 0);
+					
+					#validate variables
+					if ($startHour < 0 || $startHour > 12  || $startMinute < 0 || $startMinute > 59)
+					{
+						return 0;
+					}
+					
 					if ($startHour != 12)
 					{
 						$startHour += 12;
@@ -1409,18 +1669,20 @@ sub EventTimeParse {
 					($endHour, $endMinute) = ($seekEnd, 0);
 				}
 				
-				#if the hour == 12 (aka 0 in real time)
-				if ($startHour == 12)
+				#validate variables
+				if ($endHour < 0 || $endHour > 12  || $endMinute < 0 || $endMinute > 59)
 				{
-					$startHour -= 12;
+					return 0;
 				}
 				
 				#add hours and minutes
 				$$eventStart += ($startHour * (60 * 60));
 				$$eventStart += ($startMinute * 60);
 				
-				#set duration
-				$$eventDuration = (($endHour - $startHour) * (60 * 60));
+				DebugPrint("->$startHour:$startMinute-$endHour:$endMinute<-\n");
+				
+				#set duration from hours
+				$$eventDuration = (($endHour + (24 - $startHour)) * (60 * 60));
 
 				#if endminute < startminute
 				#we minus from duration rather than add
@@ -1458,6 +1720,12 @@ sub EventTimeParse {
 				{
 					(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
 
+					#validate variables
+					if ($seekHour < 0 || $seekHour > 12  || $seekMinute < 0 || $seekMinute > 59)
+					{
+						return 0;
+					}
+
 					#add hours and minutes to time
 					$$eventStart += ($seekHour * (60 * 60));
 					$$eventStart += ($seekMinute * 60);
@@ -1465,6 +1733,12 @@ sub EventTimeParse {
 				else
 				{
 					my $seekHour = $seekTime;
+					
+					#validate variables
+					if ($seekHour < 0 || $seekHour > 12)
+					{
+						return 0;
+					}
 
 					#add hours and minutes to time
 					$$eventStart += ($seekHour * (60 * 60));
@@ -1479,6 +1753,12 @@ sub EventTimeParse {
 				if ($seekTime =~ m/\d{1,2}:\d{2}/ix)
 				{
 					(my $seekHour, my $seekMinute) = split(/:/, $seekTime);
+
+					#validate variables
+					if ($seekHour < 0 || $seekHour > 12  || $seekMinute < 0 || $seekMinute > 59)
+					{
+						return 0;
+					}
 
 					if ($seekHour == 12)
 					{
@@ -1497,6 +1777,12 @@ sub EventTimeParse {
 				else
 				{
 					my $seekHour = $seekTime;
+					
+					#validate variables
+					if ($seekHour < 0 || $seekHour > 12)
+					{
+						return 0;
+					}
 
 					if ($seekHour == 12)
 					{
@@ -1539,12 +1825,34 @@ sub EventTimeParse {
 			#split ending time by colon
 			($endHour, $endMinute) = split(/:/, $seekEnd);
 
+			#validate variables
+			if ($startHour < 0 || $startHour > 24  || $startMinute < 0 || $startMinute > 59)
+			{
+				return 0;
+			}
+
+			if ($endHour < 0 || $endHour > 24  || $endMinute < 0 || $endMinute > 59)
+			{
+				return 0;
+			}
+
 			#add hours and minutes
+			#this sets starting hour
 			$$eventStart += ($startHour * (60 * 60));
 			$$eventStart += ($startMinute * 60);
 
-			#set duration from hours
-			$$eventDuration = (($endHour - $startHour) * (60 * 60));
+			#if the starting hour > the end hour
+			#we can assume pm to am
+			if ($startHour > $endHour)
+			{
+				#set duration from hours
+				$$eventDuration = (($endHour + (24 - $startHour)) * (60 * 60));
+			}
+			else
+			{
+				#set duration from hours
+				$$eventDuration = (($endHour - $startHour) * (60 * 60));
+			}
 			
 			
 			#if endminute < startminute
@@ -1566,6 +1874,12 @@ sub EventTimeParse {
 			
 			(my $seekHour, my $seekMinute) = split(/:/, $eventTrigger);
 
+			#validate variables
+			if ($seekHour < 0 || $seekHour > 24  || $seekMinute < 0 || $seekMinute > 59)
+			{
+				return 0;
+			}
+
 			#add hours and minutes
 			$$eventStart += ($seekHour * (60 * 60));
 			$$eventStart += ($seekMinute * 60);
@@ -1573,6 +1887,9 @@ sub EventTimeParse {
 			DebugPrint("->$$eventStart<-\n");
 		}
 	}
+	
+	#default return of true
+	return 1;
 }
 
 sub EventAppend {

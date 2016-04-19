@@ -56,6 +56,8 @@ Candice Goodison - s3285133@student.rmit.edu.au
 
 =back
 
+B<I<Note:Candice Goodison has withdrawn from the course, mark distribution thus falls all on Warren Dawes (100%).>>
+
 =head2 SEE ALSO
 
 L<http://www1.rmit.edu.au/courses/014048>, L<https://juerd.nl/site.plp/perlpodtut>
